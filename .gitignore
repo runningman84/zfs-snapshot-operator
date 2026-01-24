@@ -1,0 +1,79 @@
+# Go
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.out
+coverage.html
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+.eggs/
+dist/
+build/
+*.egg-info/
+.cache/
+.pylint.d/
+.ruff_cache/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDEs and editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.ropeproject/
+*.swp
+*.swn
+*.swo
+*~
+*.bak
+
+# Node
+node_modules/
+
+# Helm
+*.tgz
+
+# OS-specific
+.DS_Store
+
+# Logs and temporary files
+*.log
+*.tmp
+logs/
+
+# Kubernetes local config
+kubeconfig
+*.kubeconfig
+
+# binary
+operator

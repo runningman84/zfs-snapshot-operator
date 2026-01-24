@@ -1,0 +1,372 @@
+# ZFS Snapshot Operator
+
+A Kubernetes operator for automated ZFS snapshot management with configurable retention policies and pool health monitoring.
+
+> **Note**: This operator is designed for Talos-based NAS systems and requires deployment as a separate Helm release for each node with ZFS pools.
+
+## Features
+
+- **Automated Snapshot Management**: Creates and manages snapshots at configurable frequencies (hourly, daily, weekly, monthly, yearly)
+- **Flexible Retention Policies**: Configurable maximum snapshot counts per frequency via environment variables
+- **Pool Filtering**: Whitelist specific ZFS pools to manage
+- **Health Monitoring**: Warns when pool scrubs are older than 3 months
+- **Kubernetes Native**: Runs as a CronJob with configurable scheduling
+- **Test Mode**: Built-in test mode for development and validation
+
+## Architecture
+
+The operator runs as a Kubernetes CronJob that:
+1. Lists all ZFS pools and snapshots on the host
+2. Filters pools based on whitelist configuration (if specified)
+3. Checks pool health status and scrub age
+4. Creates new snapshots with timestamp-based naming
+5. Cleans up old snapshots according to retention policies
+
+## Prerequisites
+
+- Kubernetes cluster with host access (hostPID required)
+- ZFS installed on the host nodes
+- Host root filesystem mounted in the container
+
+## Installation
+
+### Using Helm
+
+```bash
+# Install with default values
+helm install zfs-snapshot-operator ./helm
+
+# Install with custom values
+helm install zfs-snapshot-operator ./helm -f custom-values.yaml
+```
+
+### Manual Installation
+
+```bash
+# Build the Docker image
+docker build -t zfs-snapshot-operator:latest .
+
+# Apply Kubernetes manifests
+kubectl apply -f helm/templates/
+```
+
+### Important Deployment Notes
+
+**Per-Node Installation Required:**
+
+Since this operator accesses ZFS pools directly on the host via `hostPID` and `chroot`, you must install a separate Helm release for each node that has ZFS pools. Each release should be configured to run only on its target node.
+
+```bash
+# Example: Install for node 'nas-node-1'
+helm install zfs-snapshot-operator-nas-1 oci://ghcr.io/runningman84/charts/zfs-snapshot-operator \
+  --version 1.0.0 \
+  --namespace zfs-snapshot-operator \
+  --create-namespace \
+  --set nodeSelector.kubernetes\.io/hostname=nas-node-1 \
+  --set pools.whitelist="tank,backup"
+
+# Example: Install for node 'nas-node-2'
+helm install zfs-snapshot-operator-nas-2 oci://ghcr.io/runningman84/charts/zfs-snapshot-operator \
+  --version 1.0.0 \
+  --namespace zfs-snapshot-operator \
+  --create-namespace \
+  --set nodeSelector.kubernetes\.io/hostname=nas-node-2 \
+  --set pools.whitelist="storage"
+```
+
+**Talos Linux Considerations:**
+
+This operator is specifically designed for Talos-based NAS systems where:
+- ZFS is installed on Talos nodes
+- The operator uses `chroot /host` to access the host's ZFS utilities
+- Host filesystem is mounted at `/host` in the container
+- Requires privileged access with `SYS_ADMIN` and `SYS_CHROOT` capabilities
+
+## Configuration
+
+### Environment Variables
+
+The operator is configured through environment variables, which can be set in the Helm values file:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MAX_HOURLY_SNAPSHOTS` | Maximum number of hourly snapshots to retain | `24` |
+| `MAX_DAILY_SNAPSHOTS` | Maximum number of daily snapshots to retain | `7` |
+| `MAX_WEEKLY_SNAPSHOTS` | Maximum number of weekly snapshots to retain | `4` |
+| `MAX_MONTHLY_SNAPSHOTS` | Maximum number of monthly snapshots to retain | `12` |
+| `MAX_YEARLY_SNAPSHOTS` | Maximum number of yearly snapshots to retain | `3` |
+| `POOL_WHITELIST` | Comma-separated list of pools to manage (empty = all pools) | `""` |
+| `SCRUB_AGE_THRESHOLD_DAYS` | Number of days before warning about old scrubs | `90` |
+
+### Helm Values
+
+Edit [helm/values.yaml](helm/values.yaml) to customize the deployment:
+
+```yaml
+# CronJob schedule (default: every hour)
+cronjob:
+  schedule: "0 * * * *"
+
+# Snapshot retention
+snapshots:
+  maxHourly: 24
+  maxDaily: 7
+  maxWeekly: 4
+  maxMonthly: 12
+  maxYearly: 3
+
+# Pool filtering
+pools:
+  whitelist: ""  # Example: "tank,backup"
+
+# Pool health monitoring
+monitoring:
+  scrubAgeThresholdDays: 90  # Warn if scrub older than this many days
+```
+
+### Example Configurations
+
+**Only manage specific pools:**
+```yaml
+pools:
+  whitelist: "tank,backup"
+```
+
+**Aggressive retention (more snapshots):**
+```yaml
+snapshots:
+  maxHourly: 48    # 2 days of hourly
+  maxDaily: 14     # 2 weeks of daily
+  maxWeekly: 8     # 2 months of weekly
+  maxMonthly: 24   # 2 years of monthly
+  maxYearly: 10    # 10 years of yearly
+```
+
+**Conservative retention (fewer snapshots):**
+```yaml
+snapshots:
+  maxHourly: 12    # 12 hours
+  maxDaily: 3      # 3 days
+  maxWeekly: 2     # 2 weeks
+  maxMonthly: 6    # 6 months
+  maxYearly: 1     # 1 year
+```
+
+**Custom scrub monitoring:**
+```yaml
+monitoring:
+  scrubAgeThresholdDays: 180  # Warn if scrub older than 6 months
+
+# Or more aggressive monitoring:
+monitoring:
+  scrubAgeThresholdDays: 30   # Warn if scrub older than 1 month
+```
+
+## Snapshot Naming Convention
+
+Snapshots are created with the following naming pattern:
+```
+autosnap_YYYY-MM-DD_HH:MM:SS_<frequency>
+```
+
+Examples:
+- `autosnap_2026-01-24_14:00:00_hourly`
+- `autosnap_2026-01-24_00:00:00_daily`
+- `autosnap_2026-01-20_00:00:00_weekly` (Mondays)
+- `autosnap_2026-01-01_00:00:00_monthly` (1st of month)
+- `autosnap_2026-01-01_00:00:00_yearly` (Jan 1st)
+
+## Health Monitoring
+
+The operator monitors ZFS pool health and provides warnings for:
+
+### Scrub Age Monitoring
+
+Warns when a pool's last scrub exceeds the configured threshold (default: 90 days). This threshold is configurable via the `SCRUB_AGE_THRESHOLD_DAYS` environment variable.
+
+**Example warning:**
+```
+WARNING: Pool tank last scrub was 120 days ago (last scrub: 2025-10-26 02:00:00) - consider running 'zpool scrub tank'
+```
+
+**Configure threshold:**
+```yaml
+monitoring:
+  scrubAgeThresholdDays: 30  # Warn after 30 days instead of default 90
+```
+
+### Pool States
+
+The operator logs pool states and errors:
+- `ONLINE`: Pool is healthy
+- `DEGRADED`: Pool has issues but is accessible
+- Errors: Logged error counts from pool status
+
+## Development
+
+### Building
+
+```bash
+# Build the binary
+go build -o operator ./cmd/operator
+
+# Run tests
+go test ./pkg/...
+
+# Run tests with coverage
+go test ./pkg/... -cover
+```
+
+### Test Coverage
+
+Current test coverage:
+- `pkg/config`: 100.0%
+- `pkg/parser`: 95.2%
+- `pkg/zfs`: 60.6%
+
+### Test Mode
+
+The operator includes a test mode for development. Set `TestMode: true` in [cmd/operator/main.go](cmd/operator/main.go#L12):
+
+```go
+cfg := config.NewConfig(true)  // true = test mode
+```
+
+In test mode, the operator uses test data files from the `test/` directory instead of executing ZFS commands.
+
+### Project Structure
+
+```
+.
+├── cmd/
+│   └── operator/
+│       └── main.go           # Entry point
+├── pkg/
+│   ├── config/               # Configuration management
+│   ├── models/               # Data models
+│   ├── operator/             # Core operator logic
+│   ├── parser/               # ZFS JSON parsing
+│   └── zfs/                  # ZFS command execution
+├── helm/                     # Helm chart
+│   ├── templates/
+│   └── values.yaml
+├── test/                     # Test data files
+│   ├── zfs_list_pools.json
+│   ├── zfs_list_pools_empty.json
+│   ├── zfs_list_snapshots.json
+│   ├── zfs_list_snapshots_empty.json
+│   ├── zpool_status.json
+│   └── zpool_status_failed.json
+└── Dockerfile
+```
+
+## How It Works
+
+### Snapshot Creation Logic
+
+1. **Hourly Snapshots**: Created every hour (when CronJob runs)
+2. **Daily Snapshots**: Created once per day (at first run after midnight)
+3. **Weekly Snapshots**: Created on Mondays (at first run on Monday)
+4. **Monthly Snapshots**: Created on the 1st of each month
+5. **Yearly Snapshots**: Created on January 1st
+
+### Retention Logic
+
+The operator maintains rolling windows of snapshots:
+- Keeps the newest N snapshots for each frequency
+- Deletes snapshots beyond the retention limit
+- Preserves manual snapshots (not matching the `autosnap_*` pattern)
+
+### Age Calculation
+
+Snapshots are categorized by age:
+- **Hourly**: Between 1 hour and 1 day old
+- **Daily**: Between 1 day and 1 week old
+- **Weekly**: Between 1 week and 1 month old
+- **Monthly**: Between 1 month and 1 year old
+- **Yearly**: Older than 1 year
+
+## Security Considerations
+
+The operator requires elevated privileges to manage ZFS:
+
+```yaml
+securityContext:
+  allowPrivilegeEscalation: true
+  capabilities:
+    add:
+      - SYS_ADMIN
+      - SYS_CHROOT
+  privileged: true
+```
+
+Additionally:
+- Runs with `hostPID: true` to access host ZFS processes
+- Mounts host root filesystem at `/host`
+- Should only be deployed in trusted environments
+
+## Troubleshooting
+
+### Snapshots Not Being Created
+
+1. Check CronJob execution:
+   ```bash
+   kubectl get cronjobs
+   kubectl get jobs
+   ```
+
+2. Check operator logs:
+   ```bash
+   kubectl logs -l app.kubernetes.io/name=zfs-snapshot-operator
+   ```
+
+3. Verify ZFS is accessible:
+   ```bash
+   kubectl exec -it <pod-name> -- zpool list
+   ```
+
+### Pool Whitelist Not Working
+
+Ensure the pool names in `pools.whitelist` exactly match the ZFS pool names:
+```bash
+# List pools
+zpool list -H -o name
+
+# Update Helm values
+pools:
+  whitelist: "exact-pool-name,another-pool"
+```
+
+### Scrub Warnings
+
+If you see scrub warnings, run a scrub on the affected pool:
+```bash
+zpool scrub <pool-name>
+```
+
+To check scrub status:
+```bash
+zpool status <pool-name>
+```
+
+## Contributing
+
+Contributions are welcome! Please ensure:
+- All tests pass: `go test ./pkg/...`
+- Code is formatted: `go fmt ./...`
+- New features include tests
+- Documentation is updated
+
+## License
+
+[Add your license information here]
+
+## Credits
+
+Developed by [runningman84](https://github.com/runningman84)
+
+## Support
+
+For issues and questions:
+- GitHub Issues: [Create an issue](https://github.com/runningman84/zfs-snapshot-operator/issues)
+- Discussions: [GitHub Discussions](https://github.com/runningman84/zfs-snapshot-operator/discussions)

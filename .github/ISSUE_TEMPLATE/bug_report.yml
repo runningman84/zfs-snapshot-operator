@@ -1,0 +1,87 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Deploy operator with...
+        2. Create Secret with annotation...
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: The operator should...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Please paste relevant operator logs
+      render: shell
+      placeholder: |
+        kubectl logs -n s3-resource-operator deployment/s3-resource-operator
+
+  - type: input
+    id: version
+    attributes:
+      label: Operator Version
+      description: Which version of the operator are you running?
+      placeholder: e.g., v1.0.0 or commit hash
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: S3 Backend
+      description: Which S3-compatible backend are you using?
+      options:
+        - VersityGW
+        - MinIO
+        - Garage
+        - AWS S3
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: kubernetes-version
+    attributes:
+      label: Kubernetes Version
+      description: What version of Kubernetes?
+      placeholder: e.g., v1.28.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem
+      placeholder: Secret manifest, environment details, etc.

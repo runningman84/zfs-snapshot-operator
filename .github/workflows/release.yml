@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  release:
+    runs-on: ubuntu-24.04
+    needs: test
+    outputs:
+      release_created: ${{ steps.semantic-release.outputs.release_created }}
+      version: ${{ steps.semantic-release.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install yq
+        run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
+
+      - name: Install semantic-release dependencies
+        run: npm install
+
+      - name: Run semantic-release
+        id: semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx semantic-release --debug 2>&1 | tee semantic-release.log
+
+          # Check if a release was created
+          if grep -q "Published GitHub release" semantic-release.log; then
+            echo "release_created=true" >> $GITHUB_OUTPUT
+            # Extract version from log
+            VERSION=$(grep "Published GitHub release" semantic-release.log | grep -oP 'v\d+\.\d+\.\d+' | head -1)
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "✅ Release $VERSION created successfully"
+          else
+            echo "release_created=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No release created (no releasable commits)"
+          fi
+
+  publish:
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.release.outputs.version }}
+    permissions:
+      contents: write
+      packages: write
+
+  sync:
+    needs: release
+    uses: ./.github/workflows/sync.yml

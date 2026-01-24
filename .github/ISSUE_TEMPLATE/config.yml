@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Issue
+    url: https://github.com/runningman84/s3-resource-operator/security/advisories/new
+    about: Please report security vulnerabilities through GitHub Security Advisories
+  - name: Discussion
+    url: https://github.com/runningman84/s3-resource-operator/discussions
+    about: Ask questions or discuss ideas

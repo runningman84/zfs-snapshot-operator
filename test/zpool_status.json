@@ -1,0 +1,23 @@
+{
+  "output_version": {
+    "command": "zpool status",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "pools": {
+    "usbstorage": {
+      "name": "usbstorage",
+      "state": "ONLINE",
+      "pool_guid": "10612767076788093111",
+      "status": "The pool is formatted using a legacy on-disk format.",
+      "action": "The pool can be upgraded using 'zpool upgrade'.",
+      "error_count": "0",
+      "scan": {
+        "function": "scrub",
+        "state": "finished",
+        "start_time": 1734912000,
+        "end_time": 1734915600
+      }
+    }
+  }
+}

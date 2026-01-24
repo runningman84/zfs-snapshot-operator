@@ -1,0 +1,330 @@
+name: Build and Publish
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g., v1.0.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write # Needed for creating releases and tags
+  packages: write # Needed to push docker image and helm chart to ghcr.io
+
+jobs:
+  build-multiarch:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Determine tag
+        id: tag
+        run: |
+          TAG="${{ inputs.tag }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          # Extract version without 'v' prefix
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Debug info
+        run: |
+          echo "Building for: ${{ matrix.platform }}"
+          echo "Runner: ${{ matrix.runner }}"
+          echo "Tag: ${{ steps.tag.outputs.tag }}"
+          echo "Version: ${{ steps.tag.outputs.version }}"
+          uname -m
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+          labels: |
+            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.version=${{ steps.tag.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v6
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    runs-on: ubuntu-24.04
+    needs: build-multiarch
+    steps:
+      - name: Determine tag
+        id: tag
+        run: |
+          TAG="${{ inputs.tag }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          # Extract version without 'v' prefix
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Debug release info
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "Tag: ${{ steps.tag.outputs.tag }}"
+          echo "Version: ${{ steps.tag.outputs.version }}"
+          echo "Release tag: ${{ github.event.release.tag_name }}"
+          echo "Release name: ${{ github.event.release.name }}"
+          echo "Release ref: ${{ github.ref }}"
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Download digests
+        uses: actions/download-artifact@v7
+        with:
+          pattern: digests-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Prepare Docker tags
+        id: docker-tags
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          REPO="ghcr.io/${{ github.repository }}"
+
+          # Extract major and minor versions
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+
+          # Build tags (space-separated for buildx)
+          TAGS="${REPO}:${VERSION} ${REPO}:${MAJOR}.${MINOR} ${REPO}:${MAJOR} ${REPO}:latest"
+
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+          echo "Docker tags: $TAGS"
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          TAGS="${{ steps.docker-tags.outputs.tags }}"
+
+          # Create buildx imagetools command with all tags
+          CMD="docker buildx imagetools create"
+          for tag in $TAGS; do
+            CMD="$CMD -t $tag"
+          done
+
+          # Add all digests
+          for digest in $(ls); do
+            CMD="$CMD ghcr.io/${{ github.repository }}@sha256:$digest"
+          done
+
+          echo "Running: $CMD"
+          eval $CMD
+
+      - name: Docker build summary
+        run: |
+          echo "✅ Multi-architecture Docker image built and pushed successfully!"
+          echo "Architectures: linux/amd64 (ubuntu-24.04), linux/arm64 (ubuntu-24.04-arm)"
+          echo "Tags:"
+          echo "${{ steps.docker-tags.outputs.tags }}" | tr ' ' '\n' | sed 's/^/  - /'
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ghcr.io/${{ github.repository }}:${{ steps.tag.outputs.version }}
+
+      - name: Install Syft for SBOM generation
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft version
+
+      - name: Install Grype for vulnerability scanning
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          grype version
+
+      - name: Generate SBOMs for multi-arch image
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          IMAGE="ghcr.io/${{ github.repository }}:${VERSION}"
+
+          echo "Generating SBOMs for ${IMAGE}"
+
+          # Generate SBOM for linux/amd64
+          echo "Generating SBOM for linux/amd64..."
+          syft scan "${IMAGE}" --platform linux/amd64 \
+            -o spdx-json=sbom-amd64-spdx.json \
+            -o cyclonedx-json=sbom-amd64-cyclonedx.json
+
+          # Generate SBOM for linux/arm64
+          echo "Generating SBOM for linux/arm64..."
+          syft scan "${IMAGE}" --platform linux/arm64 \
+            -o spdx-json=sbom-arm64-spdx.json \
+            -o cyclonedx-json=sbom-arm64-cyclonedx.json
+
+          # Generate combined SBOM (uses default platform)
+          echo "Generating combined SBOM..."
+          syft scan "${IMAGE}" \
+            -o spdx-json=sbom-spdx.json \
+            -o cyclonedx-json=sbom-cyclonedx.json
+
+          echo "✅ SBOMs generated successfully"
+          ls -lh sbom-*.json
+
+      - name: Scan for vulnerabilities
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          IMAGE="ghcr.io/${{ github.repository }}:${VERSION}"
+
+          echo "Scanning ${IMAGE} for vulnerabilities..."
+
+          # Scan and generate reports (don't fail on vulnerabilities, just report)
+          grype "${IMAGE}" --platform linux/amd64 -o table > vulnerability-report-amd64.txt || true
+          grype "${IMAGE}" --platform linux/arm64 -o table > vulnerability-report-arm64.txt || true
+          grype "${IMAGE}" -o json > vulnerability-report.json || true
+          grype "${IMAGE}" -o sarif > vulnerability-report.sarif || true
+
+          echo "✅ Vulnerability scanning completed"
+
+          # Display summary
+          echo "## Vulnerability Summary (AMD64):"
+          head -n 50 vulnerability-report-amd64.txt || echo "No vulnerabilities found"
+
+      - name: Upload vulnerability reports to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          echo "Uploading vulnerability reports to release ${TAG}"
+
+          gh release upload "${TAG}" \
+            vulnerability-report-amd64.txt \
+            vulnerability-report-arm64.txt \
+            vulnerability-report.json \
+            vulnerability-report.sarif \
+            --clobber
+
+          echo "✅ Vulnerability reports uploaded to release"
+
+      - name: Upload SBOMs to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          echo "Uploading SBOMs to release ${TAG}"
+
+          gh release upload "${TAG}" \
+            sbom-spdx.json \
+            sbom-cyclonedx.json \
+            sbom-amd64-spdx.json \
+            sbom-amd64-cyclonedx.json \
+            sbom-arm64-spdx.json \
+            sbom-arm64-cyclonedx.json \
+            --clobber
+
+          echo "✅ SBOMs uploaded to release"
+
+      - name: SBOM Summary
+        run: |
+          echo "## 📋 SBOM & Security Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Generated SBOMs for version \`${{ steps.tag.outputs.version }}\`:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Docker Image SBOMs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Combined**: SPDX and CycloneDX formats (includes all OS packages, Go dependencies, and system libraries)" >> $GITHUB_STEP_SUMMARY
+          echo "- **AMD64**: Platform-specific SPDX and CycloneDX" >> $GITHUB_STEP_SUMMARY
+          echo "- **ARM64**: Platform-specific SPDX and CycloneDX" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Vulnerability Scanning" >> $GITHUB_STEP_SUMMARY
+          echo "- Scanned with Grype for both AMD64 and ARM64 platforms" >> $GITHUB_STEP_SUMMARY
+          echo "- Reports available in multiple formats (table, JSON, SARIF)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### SBOM Files" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lh sbom-*.json >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Vulnerability Reports" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lh vulnerability-report* >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.13.2' # Specify a specific Helm version
+
+      - name: Package Helm chart
+        id: helm-package
+        run: |
+          CHART_VERSION=$(helm show chart ./helm | grep '^version:' | awk '{print $2}')
+          echo "Chart version from Chart.yaml: $CHART_VERSION"
+          echo "Expected version: ${{ steps.tag.outputs.version }}"
+
+          # Verify versions match
+          if [ "$CHART_VERSION" != "${{ steps.tag.outputs.version }}" ]; then
+            echo "WARNING: Chart version ($CHART_VERSION) doesn't match release version (${{ steps.tag.outputs.version }})"
+            echo "This might indicate semantic-release didn't update Chart.yaml correctly"
+          fi
+
+          helm package ./helm
+          CHART_NAME="${{ github.event.repository.name }}"
+          echo "chart_path=${CHART_NAME}-${CHART_VERSION}.tgz" >> $GITHUB_OUTPUT
+          echo "chart_version=${CHART_VERSION}" >> $GITHUB_OUTPUT
+          echo "Packaged: ${CHART_NAME}-${CHART_VERSION}.tgz"
+
+      - name: Login to GHCR for Helm
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push Helm chart to GHCR
+        run: |
+          CHART_FILE="${{ steps.helm-package.outputs.chart_path }}"
+          CHART_VERSION="${{ steps.helm-package.outputs.chart_version }}"
+          CHART_NAME="${{ github.event.repository.name }}"
+          echo "Pushing Helm chart: $CHART_FILE (version: $CHART_VERSION)"
+          helm push $CHART_FILE oci://ghcr.io/${{ github.repository_owner }}/charts
+          echo "Successfully pushed to: oci://ghcr.io/${{ github.repository_owner }}/charts/${CHART_NAME}:$CHART_VERSION"

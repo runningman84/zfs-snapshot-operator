@@ -1,0 +1,27 @@
+ZFS Snapshot Operator has been deployed!
+
+CronJob: {{ include "zfs-snapshot-operator.fullname" . }}
+Schedule: {{ .Values.cronjob.schedule }}
+
+Snapshot retention settings:
+  - Hourly:  {{ .Values.snapshots.maxHourly }} snapshots
+  - Daily:   {{ .Values.snapshots.maxDaily }} snapshots
+  - Weekly:  {{ .Values.snapshots.maxWeekly }} snapshots
+  - Monthly: {{ .Values.snapshots.maxMonthly }} snapshots
+  - Yearly:  {{ .Values.snapshots.maxYearly }} snapshots
+
+{{- if .Values.pools.whitelist }}
+Pool whitelist: {{ .Values.pools.whitelist }}
+{{- else }}
+Pool whitelist: all pools
+{{- end }}
+
+To check the status:
+  kubectl get cronjob {{ include "zfs-snapshot-operator.fullname" . }} -n {{ .Release.Namespace }}
+
+To view job history:
+  kubectl get jobs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+To view logs from the latest run:
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} --tail=100
+

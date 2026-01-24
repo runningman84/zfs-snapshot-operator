@@ -1,0 +1,484 @@
+package config
+
+import (
+	"os"
+	"testing"
+	"time"
+)
+
+func TestNewConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		testMode bool
+	}{
+		{
+			name:     "test mode enabled",
+			testMode: true,
+		},
+		{
+			name:     "test mode disabled",
+			testMode: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NewConfig(tt.testMode)
+
+			if cfg.TestMode != tt.testMode {
+				t.Errorf("TestMode = %v, want %v", cfg.TestMode, tt.testMode)
+			}
+
+			// Check default values
+			if cfg.MaxHourlySnapshots != 24 {
+				t.Errorf("MaxHourlySnapshots = %d, want 24", cfg.MaxHourlySnapshots)
+			}
+			if cfg.MaxDailySnapshots != 7 {
+				t.Errorf("MaxDailySnapshots = %d, want 7", cfg.MaxDailySnapshots)
+			}
+			if cfg.MaxWeeklySnapshots != 4 {
+				t.Errorf("MaxWeeklySnapshots = %d, want 4", cfg.MaxWeeklySnapshots)
+			}
+			if cfg.MaxMonthlySnapshots != 12 {
+				t.Errorf("MaxMonthlySnapshots = %d, want 12", cfg.MaxMonthlySnapshots)
+			}
+			if cfg.MaxYearlySnapshots != 3 {
+				t.Errorf("MaxYearlySnapshots = %d, want 3", cfg.MaxYearlySnapshots)
+			}
+
+			// Check command initialization
+			if len(cfg.ZFSListPoolsCmd) == 0 {
+				t.Error("ZFSListPoolsCmd is empty")
+			}
+			if len(cfg.ZFSListSnapshotsCmd) == 0 {
+				t.Error("ZFSListSnapshotsCmd is empty")
+			}
+			if len(cfg.ZFSCreateSnapshotCmd) == 0 {
+				t.Error("ZFSCreateSnapshotCmd is empty")
+			}
+			if len(cfg.ZFSDeleteSnapshotCmd) == 0 {
+				t.Error("ZFSDeleteSnapshotCmd is empty")
+			}
+			if len(cfg.ZPoolStatusCmd) == 0 {
+				t.Error("ZPoolStatusCmd is empty")
+			}
+
+			if tt.testMode {
+				// Test mode should use test commands
+				if cfg.ZFSListPoolsCmd[0] != "cat" {
+					t.Errorf("Expected test command 'cat', got '%s'", cfg.ZFSListPoolsCmd[0])
+				}
+			} else {
+				// Production mode should use chroot
+				if cfg.ZFSListPoolsCmd[0] != "chroot" {
+					t.Errorf("Expected production command 'chroot', got '%s'", cfg.ZFSListPoolsCmd[0])
+				}
+			}
+		})
+	}
+}
+
+func TestGetMaxSnapshotDate(t *testing.T) {
+	cfg := NewConfig(true)
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name      string
+		frequency string
+		wantDiff  time.Duration
+	}{
+		{
+			name:      "hourly",
+			frequency: "hourly",
+			wantDiff:  time.Duration(cfg.MaxHourlySnapshots) * time.Hour,
+		},
+		{
+			name:      "daily",
+			frequency: "daily",
+			wantDiff:  time.Duration(cfg.MaxDailySnapshots) * 24 * time.Hour,
+		},
+		{
+			name:      "weekly",
+			frequency: "weekly",
+			wantDiff:  time.Duration(cfg.MaxWeeklySnapshots) * 7 * 24 * time.Hour,
+		},
+		{
+			name:      "monthly",
+			frequency: "monthly",
+			wantDiff:  time.Duration(cfg.MaxMonthlySnapshots*4) * 7 * 24 * time.Hour,
+		},
+		{
+			name:      "yearly",
+			frequency: "yearly",
+			wantDiff:  time.Duration(cfg.MaxYearlySnapshots*52) * 7 * 24 * time.Hour,
+		},
+		{
+			name:      "invalid frequency",
+			frequency: "invalid",
+			wantDiff:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := cfg.GetMaxSnapshotDate(tt.frequency, now)
+			expected := now.Add(-tt.wantDiff)
+
+			if !result.Equal(expected) {
+				t.Errorf("GetMaxSnapshotDate(%s) = %v, want %v", tt.frequency, result, expected)
+			}
+		})
+	}
+}
+
+func TestGetMinSnapshotDate(t *testing.T) {
+	cfg := NewConfig(true)
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name      string
+		frequency string
+		wantDiff  time.Duration
+	}{
+		{
+			name:      "hourly",
+			frequency: "hourly",
+			wantDiff:  1 * time.Hour,
+		},
+		{
+			name:      "daily",
+			frequency: "daily",
+			wantDiff:  24 * time.Hour,
+		},
+		{
+			name:      "weekly",
+			frequency: "weekly",
+			wantDiff:  7 * 24 * time.Hour,
+		},
+		{
+			name:      "monthly",
+			frequency: "monthly",
+			wantDiff:  4 * 7 * 24 * time.Hour,
+		},
+		{
+			name:      "yearly",
+			frequency: "yearly",
+			wantDiff:  52 * 7 * 24 * time.Hour,
+		},
+		{
+			name:      "invalid frequency",
+			frequency: "invalid",
+			wantDiff:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := cfg.GetMinSnapshotDate(tt.frequency, now)
+			expected := now.Add(-tt.wantDiff)
+
+			if !result.Equal(expected) {
+				t.Errorf("GetMinSnapshotDate(%s) = %v, want %v", tt.frequency, result, expected)
+			}
+		})
+	}
+}
+
+func TestFrequencies(t *testing.T) {
+	frequencies := Frequencies()
+
+	expectedFrequencies := []string{"hourly", "daily", "weekly", "monthly", "yearly"}
+
+	if len(frequencies) != len(expectedFrequencies) {
+		t.Errorf("Frequencies() returned %d items, want %d", len(frequencies), len(expectedFrequencies))
+	}
+
+	for i, freq := range expectedFrequencies {
+		if frequencies[i] != freq {
+			t.Errorf("Frequencies()[%d] = %s, want %s", i, frequencies[i], freq)
+		}
+	}
+}
+
+func TestNewConfigWithEnvironmentVariables(t *testing.T) {
+	// Save original environment
+	originalEnv := map[string]string{
+		"MAX_HOURLY_SNAPSHOTS":  os.Getenv("MAX_HOURLY_SNAPSHOTS"),
+		"MAX_DAILY_SNAPSHOTS":   os.Getenv("MAX_DAILY_SNAPSHOTS"),
+		"MAX_WEEKLY_SNAPSHOTS":  os.Getenv("MAX_WEEKLY_SNAPSHOTS"),
+		"MAX_MONTHLY_SNAPSHOTS": os.Getenv("MAX_MONTHLY_SNAPSHOTS"),
+		"MAX_YEARLY_SNAPSHOTS":  os.Getenv("MAX_YEARLY_SNAPSHOTS"),
+	}
+
+	// Restore environment after test
+	defer func() {
+		for key, value := range originalEnv {
+			if value == "" {
+				os.Unsetenv(key)
+			} else {
+				os.Setenv(key, value)
+			}
+		}
+	}()
+
+	// Set test environment variables
+	os.Setenv("MAX_HOURLY_SNAPSHOTS", "48")
+	os.Setenv("MAX_DAILY_SNAPSHOTS", "14")
+	os.Setenv("MAX_WEEKLY_SNAPSHOTS", "8")
+	os.Setenv("MAX_MONTHLY_SNAPSHOTS", "24")
+	os.Setenv("MAX_YEARLY_SNAPSHOTS", "5")
+
+	cfg := NewConfig(true)
+
+	if cfg.MaxHourlySnapshots != 48 {
+		t.Errorf("MaxHourlySnapshots = %d, want 48", cfg.MaxHourlySnapshots)
+	}
+	if cfg.MaxDailySnapshots != 14 {
+		t.Errorf("MaxDailySnapshots = %d, want 14", cfg.MaxDailySnapshots)
+	}
+	if cfg.MaxWeeklySnapshots != 8 {
+		t.Errorf("MaxWeeklySnapshots = %d, want 8", cfg.MaxWeeklySnapshots)
+	}
+	if cfg.MaxMonthlySnapshots != 24 {
+		t.Errorf("MaxMonthlySnapshots = %d, want 24", cfg.MaxMonthlySnapshots)
+	}
+	if cfg.MaxYearlySnapshots != 5 {
+		t.Errorf("MaxYearlySnapshots = %d, want 5", cfg.MaxYearlySnapshots)
+	}
+}
+
+func TestGetEnvAsInt(t *testing.T) {
+	tests := []struct {
+		name         string
+		envValue     string
+		defaultValue int
+		want         int
+	}{
+		{
+			name:         "valid integer",
+			envValue:     "42",
+			defaultValue: 10,
+			want:         42,
+		},
+		{
+			name:         "empty string",
+			envValue:     "",
+			defaultValue: 10,
+			want:         10,
+		},
+		{
+			name:         "invalid integer",
+			envValue:     "not-a-number",
+			defaultValue: 10,
+			want:         10,
+		},
+		{
+			name:         "zero value",
+			envValue:     "0",
+			defaultValue: 10,
+			want:         0,
+		},
+		{
+			name:         "negative value",
+			envValue:     "-5",
+			defaultValue: 10,
+			want:         -5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up test environment
+			testKey := "TEST_ENV_INT_KEY"
+			if tt.envValue != "" {
+				os.Setenv(testKey, tt.envValue)
+			} else {
+				os.Unsetenv(testKey)
+			}
+			defer os.Unsetenv(testKey)
+
+			got := getEnvAsInt(testKey, tt.defaultValue)
+			if got != tt.want {
+				t.Errorf("getEnvAsInt() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetEnvAsStringSlice(t *testing.T) {
+	tests := []struct {
+		name         string
+		envValue     string
+		defaultValue []string
+		want         []string
+	}{
+		{
+			name:         "single value",
+			envValue:     "tank",
+			defaultValue: []string{},
+			want:         []string{"tank"},
+		},
+		{
+			name:         "multiple values",
+			envValue:     "tank,backup,storage",
+			defaultValue: []string{},
+			want:         []string{"tank", "backup", "storage"},
+		},
+		{
+			name:         "values with spaces",
+			envValue:     "tank, backup , storage",
+			defaultValue: []string{},
+			want:         []string{"tank", "backup", "storage"},
+		},
+		{
+			name:         "empty string",
+			envValue:     "",
+			defaultValue: []string{"default"},
+			want:         []string{"default"},
+		},
+		{
+			name:         "empty values in list",
+			envValue:     "tank,,backup",
+			defaultValue: []string{},
+			want:         []string{"tank", "backup"},
+		},
+		{
+			name:         "only commas",
+			envValue:     ",,,",
+			defaultValue: []string{"default"},
+			want:         []string{"default"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testKey := "TEST_ENV_STRING_SLICE_KEY"
+			if tt.envValue != "" {
+				os.Setenv(testKey, tt.envValue)
+			} else {
+				os.Unsetenv(testKey)
+			}
+			defer os.Unsetenv(testKey)
+
+			got := getEnvAsStringSlice(testKey, tt.defaultValue)
+			if len(got) != len(tt.want) {
+				t.Errorf("getEnvAsStringSlice() length = %d, want %d", len(got), len(tt.want))
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("getEnvAsStringSlice()[%d] = %s, want %s", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestIsPoolAllowed(t *testing.T) {
+	tests := []struct {
+		name      string
+		whitelist []string
+		poolName  string
+		want      bool
+	}{
+		{
+			name:      "empty whitelist allows all",
+			whitelist: []string{},
+			poolName:  "tank",
+			want:      true,
+		},
+		{
+			name:      "pool in whitelist",
+			whitelist: []string{"tank", "backup"},
+			poolName:  "tank",
+			want:      true,
+		},
+		{
+			name:      "pool not in whitelist",
+			whitelist: []string{"tank", "backup"},
+			poolName:  "storage",
+			want:      false,
+		},
+		{
+			name:      "single pool whitelist match",
+			whitelist: []string{"tank"},
+			poolName:  "tank",
+			want:      true,
+		},
+		{
+			name:      "single pool whitelist no match",
+			whitelist: []string{"tank"},
+			poolName:  "backup",
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				PoolWhitelist: tt.whitelist,
+			}
+			got := cfg.IsPoolAllowed(tt.poolName)
+			if got != tt.want {
+				t.Errorf("IsPoolAllowed(%s) = %v, want %v", tt.poolName, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewConfigWithPoolWhitelist(t *testing.T) {
+	// Save original environment
+	originalEnv := os.Getenv("POOL_WHITELIST")
+	defer func() {
+		if originalEnv == "" {
+			os.Unsetenv("POOL_WHITELIST")
+		} else {
+			os.Setenv("POOL_WHITELIST", originalEnv)
+		}
+	}()
+
+	tests := []struct {
+		name     string
+		envValue string
+		want     []string
+	}{
+		{
+			name:     "no whitelist",
+			envValue: "",
+			want:     []string{},
+		},
+		{
+			name:     "single pool",
+			envValue: "tank",
+			want:     []string{"tank"},
+		},
+		{
+			name:     "multiple pools",
+			envValue: "tank,backup,storage",
+			want:     []string{"tank", "backup", "storage"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				os.Setenv("POOL_WHITELIST", tt.envValue)
+			} else {
+				os.Unsetenv("POOL_WHITELIST")
+			}
+
+			cfg := NewConfig(true)
+
+			if len(cfg.PoolWhitelist) != len(tt.want) {
+				t.Errorf("PoolWhitelist length = %d, want %d", len(cfg.PoolWhitelist), len(tt.want))
+				return
+			}
+
+			for i := range cfg.PoolWhitelist {
+				if cfg.PoolWhitelist[i] != tt.want[i] {
+					t.Errorf("PoolWhitelist[%d] = %s, want %s", i, cfg.PoolWhitelist[i], tt.want[i])
+				}
+			}
+		})
+	}
+}

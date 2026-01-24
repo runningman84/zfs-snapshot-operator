@@ -1,0 +1,93 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "zfs-snapshot-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "zfs-snapshot-operator.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronjob.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.cronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronjob.failedJobsHistoryLimit }}
+  concurrencyPolicy: {{ .Values.cronjob.concurrencyPolicy }}
+  {{- with .Values.cronjob.suspend }}
+  suspend: {{ . }}
+  {{- end }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "zfs-snapshot-operator.labels" . | nindent 12 }}
+            {{- with .Values.podLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          serviceAccountName: {{ include "zfs-snapshot-operator.serviceAccountName" . }}
+          containers:
+          - name: {{ .Chart.Name }}
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            env:
+              - name: MAX_HOURLY_SNAPSHOTS
+                value: {{ .Values.snapshots.maxHourly | quote }}
+              - name: MAX_DAILY_SNAPSHOTS
+                value: {{ .Values.snapshots.maxDaily | quote }}
+              - name: MAX_WEEKLY_SNAPSHOTS
+                value: {{ .Values.snapshots.maxWeekly | quote }}
+              - name: MAX_MONTHLY_SNAPSHOTS
+                value: {{ .Values.snapshots.maxMonthly | quote }}
+              - name: MAX_YEARLY_SNAPSHOTS
+                value: {{ .Values.snapshots.maxYearly | quote }}
+              {{- if .Values.pools.whitelist }}
+              - name: POOL_WHITELIST
+                value: {{ .Values.pools.whitelist | quote }}
+              {{- end }}
+              - name: SCRUB_AGE_THRESHOLD_DAYS
+                value: {{ .Values.monitoring.scrubAgeThresholdDays | quote }}
+            {{- with .Values.resources }}
+            resources:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            securityContext:
+              {{- toYaml .Values.securityContext | nindent 14 }}
+            volumeMounts:
+              - mountPath: {{ .Values.cronjob.hostMountPath }}
+                mountPropagation: HostToContainer
+                name: host-dir
+                readOnly: true
+              {{- with .Values.volumeMounts }}
+              {{- toYaml . | nindent 14 }}
+              {{- end }}
+          restartPolicy: {{ .Values.cronjob.restartPolicy }}
+          hostPID: {{ .Values.cronjob.hostPID }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          volumes:
+            - hostPath:
+                path: {{ .Values.cronjob.hostPath }}
+                type: Directory
+              name: host-dir
+            {{- with .Values.volumes }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

@@ -1,0 +1,72 @@
+name: Validate Commits
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Validate PR commits
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+      - name: Comment on PR (if validation fails)
+        if: failure()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ❌ Commit Message Validation Failed
+
+            This PR contains commits that don't follow the [Conventional Commits](https://www.conventionalcommits.org/) format.
+
+            ### Required Format:
+            \`\`\`
+            <type>: <description>
+
+            [optional body]
+
+            [optional footer]
+            \`\`\`
+
+            ### Valid Types:
+            - **feat**: A new feature
+            - **fix**: A bug fix
+            - **docs**: Documentation only changes
+            - **style**: Code style changes (formatting, missing semicolons, etc.)
+            - **refactor**: Code refactoring
+            - **perf**: Performance improvements
+            - **test**: Adding or updating tests
+            - **chore**: Changes to build process or auxiliary tools
+            - **ci**: CI configuration changes
+            - **build**: Changes to build system or dependencies
+
+            ### Examples:
+            - \`feat: add support for bucket versioning\`
+            - \`fix: correct owner change logic\`
+            - \`docs: update installation instructions\`
+            - \`test: add tests for graceful shutdown\`
+
+            Please update your commit messages or squash your commits with proper messages.`
+            })

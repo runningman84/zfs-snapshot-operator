@@ -1,0 +1,35 @@
+{  "output_version": {    "command": "zfs list",    "vers_major": 0,    "vers_minor": 1  },  "datasets": {    "usbstorage/private@autosnap_2024-01-15_10:00:00_hourly": {      "name": "usbstorage/private@autosnap_2024-01-15_10:00:00_hourly",      "type": "SNAPSHOT",      "pool": "usbstorage",      "dataset": "usbstorage/private",      "snapshot_name": "autosnap_2024-01-15_10:00:00_hourly",      "createtxg": "1001"    },    "usbstorage/private@autosnap_2024-01-15_00:00:00_daily": {      "name": "usbstorage/private@autosnap_2024-01-15_00:00:00_daily",      "type": "SNAPSHOT",      "pool": "usbstorage",      "dataset": "usbstorage/private",      "snapshot_name": "autosnap_2024-01-15_00:00:00_daily",      "createtxg": "1002"    },    "usbstorage/private@autosnap_2024-01-14_00:00:00_weekly": {      "name": "usbstorage/private@autosnap_2024-01-14_00:00:00_weekly",      "type": "SNAPSHOT",      "pool": "usbstorage",      "dataset": "usbstorage/private",      "snapshot_name": "autosnap_2024-01-14_00:00:00_weekly",      "createtxg": "1003"    },
+    "usbstorage/private@autosnap_2024-01-01_00:00:00_monthly": {
+      "name": "usbstorage/private@autosnap_2024-01-01_00:00:00_monthly",
+      "type": "SNAPSHOT",
+      "pool": "usbstorage",
+      "dataset": "usbstorage/private",
+      "snapshot_name": "autosnap_2024-01-01_00:00:00_monthly",
+      "createtxg": "1004"
+    },
+    "usbstorage/public@autosnap_2024-01-15_11:00:00_hourly": {
+      "name": "usbstorage/public@autosnap_2024-01-15_11:00:00_hourly",
+      "type": "SNAPSHOT",
+      "pool": "usbstorage",
+      "dataset": "usbstorage/public",
+      "snapshot_name": "autosnap_2024-01-15_11:00:00_hourly",
+      "createtxg": "1005"
+    },
+    "usbstorage/public@autosnap_2024-01-15_00:00:00_daily": {
+      "name": "usbstorage/public@autosnap_2024-01-15_00:00:00_daily",
+      "type": "SNAPSHOT",
+      "pool": "usbstorage",
+      "dataset": "usbstorage/public",
+      "snapshot_name": "autosnap_2024-01-15_00:00:00_daily",
+      "createtxg": "1006"
+    },
+    "usbstorage/public@manual-snapshot": {
+      "name": "usbstorage/public@manual-snapshot",
+      "type": "SNAPSHOT",
+      "pool": "usbstorage",
+      "dataset": "usbstorage/public",
+      "snapshot_name": "manual-snapshot",
+      "createtxg": "1007"
+    }
+  }
+}

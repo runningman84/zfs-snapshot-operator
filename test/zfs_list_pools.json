@@ -1,0 +1,24 @@
+{
+  "output_version": {
+    "command": "zfs list",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "datasets": {
+    "usbstorage": {
+      "name": "usbstorage",
+      "type": "FILESYSTEM",
+      "pool": "usbstorage"
+    },
+    "usbstorage/private": {
+      "name": "usbstorage/private",
+      "type": "FILESYSTEM",
+      "pool": "usbstorage"
+    },
+    "usbstorage/public": {
+      "name": "usbstorage/public",
+      "type": "FILESYSTEM",
+      "pool": "usbstorage"
+    }
+  }
+}

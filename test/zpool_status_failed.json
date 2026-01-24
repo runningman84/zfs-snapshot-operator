@@ -1,0 +1,39 @@
+{
+  "output_version": {
+    "command": "zpool status",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "pools": {
+    "usbstorage": {
+      "name": "usbstorage",
+      "state": "DEGRADED",
+      "pool_guid": "10612767076788093111",
+      "status": "One or more devices has experienced an unrecoverable error.",
+      "action": "Determine if the device needs to be replaced, and clear the errors using 'zpool clear' or replace the device with 'zpool replace'.",
+      "error_count": "0",
+      "scan": {
+        "function": "scrub",
+        "state": "finished",
+        "start_time": 1705276800,
+        "end_time": 1705280400
+      }
+    },
+    "backup": {
+      "name": "backup",
+      "state": "FAULTED",
+      "pool_guid": "20612767076788093222",
+      "status": "The pool metadata is corrupted and the pool cannot be opened.",
+      "action": "Destroy and re-create the pool from a backup source.",
+      "error_count": "15"
+    },
+    "corrupted": {
+      "name": "corrupted",
+      "state": "ONLINE",
+      "pool_guid": "30612767076788093333",
+      "status": "One or more devices has experienced an error resulting in data corruption.",
+      "action": "Restore the file in question if possible. Otherwise restore the entire pool from backup.",
+      "error_count": "42"
+    }
+  }
+}

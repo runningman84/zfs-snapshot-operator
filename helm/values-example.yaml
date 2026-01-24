@@ -1,0 +1,39 @@
+# Example values file for ZFS Snapshot Operator
+# This file demonstrates how to customize snapshot retention settings
+
+# Snapshot retention configuration
+# Adjust these values based on your backup retention requirements
+snapshots:
+  # Keep 48 hours worth of hourly snapshots (2 days)
+  maxHourly: 48
+  
+  # Keep 14 days worth of daily snapshots (2 weeks)
+  maxDaily: 14
+  
+  # Keep 8 weeks worth of weekly snapshots (2 months)
+  maxWeekly: 8
+  
+  # Keep 24 months worth of monthly snapshots (2 years)
+  maxMonthly: 24
+  
+  # Keep 5 years worth of yearly snapshots
+  maxYearly: 5
+
+# Pool filtering
+# Specify which pools to manage snapshots for
+pools:
+  # Comma-separated list of pool names
+  # Example: "tank,backup" to only manage tank and backup pools
+  # Leave empty to manage all pools
+  whitelist: "tank,backup"
+
+# CronJob configuration
+cronjob:
+  # Run every hour
+  schedule: "0 * * * *"
+  
+  # Run every 15 minutes for more frequent snapshots
+  # schedule: "*/15 * * * *"
+  
+  # Run daily at 2 AM
+  # schedule: "0 2 * * *"
