@@ -16,6 +16,8 @@ var Version = "dev"
 func main() {
 	// Parse command line flags
 	mode := flag.String("mode", "direct", "Operation mode: test, direct, or chroot")
+	logLevel := flag.String("log-level", "info", "Log level: info or debug")
+	dryRun := flag.Bool("dry-run", false, "Enable dry-run mode (no actual snapshot creation or deletion)")
 	showVersion := flag.Bool("version", false, "Show version and exit")
 	flag.Parse()
 
@@ -30,10 +32,22 @@ func main() {
 		log.Fatalf("Invalid mode: %s. Must be one of: test, direct, chroot", *mode)
 	}
 
-	log.Printf("Starting zfs-snapshot-operator version %s in %s mode", Version, *mode)
+	// Validate log level
+	if *logLevel != "info" && *logLevel != "debug" {
+		log.Fatalf("Invalid log level: %s. Must be one of: info, debug", *logLevel)
+	}
+
+	log.Printf("Starting zfs-snapshot-operator version %s in %s mode with %s log level", Version, *mode, *logLevel)
 
 	// Create configuration with specified mode
 	cfg := config.NewConfig(*mode)
+	cfg.LogLevel = *logLevel
+
+	// Override DryRun if specified via flag
+	if *dryRun {
+		cfg.DryRun = true
+		log.Printf("Dry-run mode enabled via command-line flag")
+	}
 
 	// Create and run operator
 	op := operator.NewOperator(cfg)

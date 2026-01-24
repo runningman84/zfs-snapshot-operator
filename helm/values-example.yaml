@@ -5,6 +5,9 @@
 # For Kubernetes deployments, use chroot mode (default)
 operator:
   mode: chroot
+  # Log level: info (default) or debug
+  # Use debug to see all executed ZFS commands in logs
+  logLevel: info
   chrootHostPath: /host
   chrootBinPath: /usr/local/sbin
 
@@ -33,6 +36,14 @@ pools:
   # Example: "tank,backup" to only manage tank and backup pools
   # Leave empty to manage all pools
   whitelist: "tank,backup"
+
+# Filesystem filtering
+# Specify which filesystems to manage snapshots for
+filesystems:
+  # Comma-separated list of filesystem names
+  # Example: "data,media" to only manage data and media filesystems
+  # Leave empty to manage all filesystems
+  whitelist: ""
 
 # CronJob configuration
 cronjob:

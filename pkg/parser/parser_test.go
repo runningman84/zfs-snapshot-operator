@@ -61,6 +61,16 @@ func TestParseSnapshotsJSON(t *testing.T) {
 			if snap.FilesystemName != "tank/data" {
 				t.Errorf("hourly snapshot FilesystemName = %v, want tank/data", snap.FilesystemName)
 			}
+			// Test DateTime parsing
+			if snap.DateTime.IsZero() {
+				t.Error("hourly snapshot DateTime should not be zero")
+			}
+			if snap.DateTime.Year() != 2024 || snap.DateTime.Month() != 1 || snap.DateTime.Day() != 15 {
+				t.Errorf("hourly snapshot DateTime = %v, want 2024-01-15", snap.DateTime)
+			}
+			if snap.DateTime.Hour() != 10 {
+				t.Errorf("hourly snapshot DateTime hour = %v, want 10", snap.DateTime.Hour())
+			}
 		}
 	}
 	if !found {
@@ -74,6 +84,10 @@ func TestParseSnapshotsJSON(t *testing.T) {
 			foundManual = true
 			if snap.Frequency != "" {
 				t.Errorf("manual snapshot Frequency = %v, want empty string", snap.Frequency)
+			}
+			// Manual snapshots without date format should have zero time
+			if !snap.DateTime.IsZero() {
+				t.Errorf("manual snapshot DateTime should be zero, got %v", snap.DateTime)
 			}
 		}
 	}
@@ -246,7 +260,57 @@ func TestParsePoolStatusJSON(t *testing.T) {
 		t.Error("corrupted pool not found in status map")
 	}
 }
+func TestParsePoolStatusJSON_RealZpoolFormat(t *testing.T) {
+	// Test with actual zpool status output format that uses scan_stats and uppercase states
+	jsonData := `{
+  "output_version": {
+    "command": "zpool status",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "pools": {
+    "usbstorage": {
+      "name": "usbstorage",
+      "state": "ONLINE",
+      "error_count": "0",
+      "scan_stats": {
+        "function": "SCRUB",
+        "state": "FINISHED",
+        "start_time": "Sat Jan 24 11:12:36 2026",
+        "end_time": "Sat Jan 24 17:52:19 2026"
+      }
+    }
+  }
+}`
 
+	statusMap, err := ParsePoolStatusJSON([]byte(jsonData))
+	if err != nil {
+		t.Fatalf("ParsePoolStatusJSON() error = %v", err)
+	}
+
+	if len(statusMap) != 1 {
+		t.Errorf("ParsePoolStatusJSON() returned %d pools, want 1", len(statusMap))
+	}
+
+	if storage, exists := statusMap["usbstorage"]; exists {
+		if storage.ScrubState != "finished" {
+			t.Errorf("storage.ScrubState = %v, want 'finished' (lowercase)", storage.ScrubState)
+		}
+		if storage.ScrubFunction != "scrub" {
+			t.Errorf("storage.ScrubFunction = %v, want 'scrub' (lowercase)", storage.ScrubFunction)
+		}
+		if storage.LastScrubTime == 0 {
+			t.Error("storage.LastScrubTime should not be 0 for finished scrub")
+		}
+		// The time should be parsed from "Sat Jan 24 17:52:19 2026"
+		// Verify it's in the year 2026 (timestamp > 1735689600 which is Jan 1, 2025)
+		if storage.LastScrubTime < 1735689600 {
+			t.Errorf("storage.LastScrubTime = %v, expected to be in 2026", storage.LastScrubTime)
+		}
+	} else {
+		t.Error("usbstorage pool not found in status map")
+	}
+}
 func TestParsePoolStatusJSON_InvalidJSON(t *testing.T) {
 	jsonData := `invalid json`
 

@@ -12,11 +12,23 @@
       "status": "The pool is formatted using a legacy on-disk format.",
       "action": "The pool can be upgraded using 'zpool upgrade'.",
       "error_count": "0",
-      "scan": {
-        "function": "scrub",
-        "state": "finished",
-        "start_time": 1734912000,
-        "end_time": 1734915600
+      "vdevs": {
+        "usbstorage": {
+          "name": "usbstorage",
+          "vdev_type": "root",
+          "state": "ONLINE",
+          "alloc_space": "750G",
+          "total_space": "1.81T",
+          "read_errors": "0",
+          "write_errors": "0",
+          "checksum_errors": "0"
+        }
+      },
+      "scan_stats": {
+        "function": "SCRUB",
+        "state": "FINISHED",
+        "start_time": "Fri Jan 24 11:12:36 2026",
+        "end_time": "Fri Jan 24 17:52:19 2026"
       }
     }
   }

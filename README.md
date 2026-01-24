@@ -9,9 +9,21 @@ A Kubernetes operator for automated ZFS snapshot management with configurable re
 - **Automated Snapshot Management**: Creates and manages snapshots at configurable frequencies (hourly, daily, weekly, monthly, yearly)
 - **Flexible Retention Policies**: Configurable maximum snapshot counts per frequency via environment variables
 - **Pool Filtering**: Whitelist specific ZFS pools to manage
-- **Health Monitoring**: Warns when pool scrubs are older than 3 months
+- **Filesystem Filtering**: Whitelist specific filesystems to manage
+- **Health Monitoring**:
+  - Checks pool health status and warns about degraded pools
+  - Warns when pool scrubs are older than 90 days
+  - Logs pool errors (read, write, checksum errors)
+  - Logs filesystem usage statistics
+- **Safety Features**:
+  - **Dry-run mode**: Preview snapshot operations (create/delete) without actually executing them
+  - **Deletion limits**: Maximum number of snapshots to delete per run
+  - **Minimum retention**: Never deletes all snapshots - always keeps at least 1
+  - **Concurrent run protection**: Lock file prevents multiple instances running simultaneously
+  - **Error exit codes**: Exits with code 1 if any pool is unhealthy or commands fail
 - **Kubernetes Native**: Runs as a CronJob with configurable scheduling
 - **Test Mode**: Built-in test mode for development and validation
+- **Debug Logging**: Detailed command execution logs in debug mode
 
 ## Architecture
 
@@ -110,12 +122,17 @@ The operator is configured through environment variables, which can be set in th
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `LOG_LEVEL` | Log level: `info` or `debug` (debug prints all executed commands) | `info` |
+| `DRY_RUN` | If `true`, log what would be created/deleted but don't actually modify snapshots | `false` |
+| `MAX_DELETIONS_PER_RUN` | Maximum number of snapshots to delete in a single run (safety limit) | `100` |
+| `LOCK_FILE_PATH` | Path to lock file for preventing concurrent runs | `/tmp/zfs-snapshot-operator.lock` |
 | `MAX_HOURLY_SNAPSHOTS` | Maximum number of hourly snapshots to retain | `24` |
 | `MAX_DAILY_SNAPSHOTS` | Maximum number of daily snapshots to retain | `7` |
 | `MAX_WEEKLY_SNAPSHOTS` | Maximum number of weekly snapshots to retain | `4` |
 | `MAX_MONTHLY_SNAPSHOTS` | Maximum number of monthly snapshots to retain | `12` |
 | `MAX_YEARLY_SNAPSHOTS` | Maximum number of yearly snapshots to retain | `3` |
 | `POOL_WHITELIST` | Comma-separated list of pools to manage (empty = all pools) | `""` |
+| `FILESYSTEM_WHITELIST` | Comma-separated list of filesystems to manage (empty = all filesystems) | `""` |
 | `SCRUB_AGE_THRESHOLD_DAYS` | Number of days before warning about old scrubs | `90` |
 | `CHROOT_HOST_PATH` | Host root path for chroot mode | `/host` |
 | `CHROOT_BIN_PATH` | Path to ZFS binaries in chroot mode | `/usr/local/sbin` |
@@ -184,6 +201,32 @@ monitoring:
   scrubAgeThresholdDays: 30   # Warn if scrub older than 1 month
 ```
 
+**Safety features:**
+```yaml
+operator:
+  # Enable dry-run mode to preview what would be deleted
+  dryRun: true
+
+  # Limit maximum deletions per run (safety against bugs)
+  maxDeletionsPerRun: 50
+
+  # Custom lock file path
+  lockFilePath: /var/run/zfs-operator.lock
+```
+
+**Testing configuration before deployment:**
+```yaml
+# First deploy with dry-run enabled
+operator:
+  dryRun: true
+  logLevel: debug
+
+# Review logs, then disable dry-run for production
+operator:
+  dryRun: false
+  logLevel: info
+```
+
 ## Snapshot Naming Convention
 
 Snapshots are created with the following naming pattern:
@@ -237,6 +280,15 @@ The operator logs pool states and errors:
 
 # Specify operation mode
 ./operator -mode <mode>
+
+# Enable debug logging
+./operator -log-level debug
+
+# Enable dry-run mode (preview deletions without executing)
+./operator -dry-run
+
+# Combine options
+./operator -mode chroot -log-level debug -dry-run
 ```
 
 ### Operation Modes
@@ -295,9 +347,10 @@ go test ./pkg/... -cover
 ### Test Coverage
 
 Current test coverage:
-- `pkg/config`: 100.0%
-- `pkg/parser`: 95.2%
-- `pkg/zfs`: 60.6%
+- `pkg/config`: 98.8%
+- `pkg/parser`: 80.3%
+- `pkg/zfs`: 49.6%
+- `pkg/operator`: 10.7%
 
 ### Running in Test Mode
 
@@ -434,11 +487,15 @@ Contributions are welcome! Please ensure:
 
 ## License
 
-[Add your license information here]
+MIT License
 
 ## Credits
 
 Developed by [runningman84](https://github.com/runningman84)
+
+### Acknowledgments
+
+- Snapshot naming convention inspired by [zfs-auto-snapshot](https://github.com/zfsonlinux/zfs-auto-snapshot)
 
 ## Support
 
