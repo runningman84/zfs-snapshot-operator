@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewManager(t *testing.T) {
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	manager := NewManager(cfg)
 
 	if manager == nil {
@@ -23,7 +23,7 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestIsSnapshotRecent(t *testing.T) {
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	manager := NewManager(cfg)
 	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
 
@@ -100,7 +100,7 @@ func TestIsSnapshotRecent(t *testing.T) {
 }
 
 func TestCanSnapshotBeDeleted(t *testing.T) {
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	manager := NewManager(cfg)
 	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
 
@@ -182,7 +182,7 @@ func TestGetPools(t *testing.T) {
 		t.Skip("cat command not available")
 	}
 
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	manager := NewManager(cfg)
 
 	pools, err := manager.GetPools()
@@ -209,7 +209,7 @@ func TestGetSnapshots(t *testing.T) {
 		t.Skip("cat command not available")
 	}
 
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	manager := NewManager(cfg)
 
 	snapshots, err := manager.GetSnapshots("tank", "data", "")
@@ -236,7 +236,7 @@ func TestGetSnapshotsFiltered(t *testing.T) {
 		t.Skip("cat command not available")
 	}
 
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	manager := NewManager(cfg)
 
 	// Test filtering by frequency
@@ -259,7 +259,7 @@ func TestGetPoolStatus(t *testing.T) {
 		t.Skip("cat command not available")
 	}
 
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	manager := NewManager(cfg)
 
 	statusMap, err := manager.GetPoolStatus()
@@ -284,7 +284,7 @@ func TestGetPoolStatus(t *testing.T) {
 }
 
 func TestIsPoolHealthy(t *testing.T) {
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	manager := NewManager(cfg)
 
 	tests := []struct {
@@ -357,7 +357,7 @@ func TestGetPoolStatusWithFailedPools(t *testing.T) {
 	}
 
 	// Create a config that uses the failed pools status file
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	cfg.ZPoolStatusCmd = []string{"cat", "../../test/zpool_status_failed.json"}
 	manager := NewManager(cfg)
 
@@ -414,7 +414,7 @@ func TestGetPoolsEmpty(t *testing.T) {
 		t.Skip("cat command not available")
 	}
 
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	cfg.ZFSListPoolsCmd = []string{"cat", "../../test/zfs_list_pools_empty.json"}
 	manager := NewManager(cfg)
 
@@ -434,7 +434,7 @@ func TestGetSnapshotsEmpty(t *testing.T) {
 		t.Skip("cat command not available")
 	}
 
-	cfg := config.NewConfig(true)
+	cfg := config.NewConfig("test")
 	cfg.ZFSListSnapshotsCmd = []string{"cat", "../../test/zfs_list_snapshots_empty.json"}
 	manager := NewManager(cfg)
 

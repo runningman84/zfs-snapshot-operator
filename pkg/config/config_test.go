@@ -8,25 +8,29 @@ import (
 
 func TestNewConfig(t *testing.T) {
 	tests := []struct {
-		name     string
-		testMode bool
+		name string
+		mode string
 	}{
 		{
-			name:     "test mode enabled",
-			testMode: true,
+			name: "test mode",
+			mode: "test",
 		},
 		{
-			name:     "test mode disabled",
-			testMode: false,
+			name: "direct mode",
+			mode: "direct",
+		},
+		{
+			name: "chroot mode",
+			mode: "chroot",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := NewConfig(tt.testMode)
+			cfg := NewConfig(tt.mode)
 
-			if cfg.TestMode != tt.testMode {
-				t.Errorf("TestMode = %v, want %v", cfg.TestMode, tt.testMode)
+			if cfg.Mode != tt.mode {
+				t.Errorf("Mode = %v, want %v", cfg.Mode, tt.mode)
 			}
 
 			// Check default values
@@ -63,15 +67,20 @@ func TestNewConfig(t *testing.T) {
 				t.Error("ZPoolStatusCmd is empty")
 			}
 
-			if tt.testMode {
+			if tt.mode == "test" {
 				// Test mode should use test commands
 				if cfg.ZFSListPoolsCmd[0] != "cat" {
 					t.Errorf("Expected test command 'cat', got '%s'", cfg.ZFSListPoolsCmd[0])
 				}
-			} else {
-				// Production mode should use chroot
+			} else if tt.mode == "chroot" {
+				// Chroot mode should use chroot
 				if cfg.ZFSListPoolsCmd[0] != "chroot" {
-					t.Errorf("Expected production command 'chroot', got '%s'", cfg.ZFSListPoolsCmd[0])
+					t.Errorf("Expected chroot command 'chroot', got '%s'", cfg.ZFSListPoolsCmd[0])
+				}
+			} else if tt.mode == "direct" {
+				// Direct mode should use command from PATH
+				if cfg.ZFSListPoolsCmd[0] != "zfs" {
+					t.Errorf("Expected direct command 'zfs', got '%s'", cfg.ZFSListPoolsCmd[0])
 				}
 			}
 		})
@@ -79,7 +88,7 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestGetMaxSnapshotDate(t *testing.T) {
-	cfg := NewConfig(true)
+	cfg := NewConfig("test")
 	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
@@ -132,7 +141,7 @@ func TestGetMaxSnapshotDate(t *testing.T) {
 }
 
 func TestGetMinSnapshotDate(t *testing.T) {
-	cfg := NewConfig(true)
+	cfg := NewConfig("test")
 	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
@@ -228,7 +237,7 @@ func TestNewConfigWithEnvironmentVariables(t *testing.T) {
 	os.Setenv("MAX_MONTHLY_SNAPSHOTS", "24")
 	os.Setenv("MAX_YEARLY_SNAPSHOTS", "5")
 
-	cfg := NewConfig(true)
+	cfg := NewConfig("test")
 
 	if cfg.MaxHourlySnapshots != 48 {
 		t.Errorf("MaxHourlySnapshots = %d, want 48", cfg.MaxHourlySnapshots)
@@ -467,7 +476,7 @@ func TestNewConfigWithPoolWhitelist(t *testing.T) {
 				os.Unsetenv("POOL_WHITELIST")
 			}
 
-			cfg := NewConfig(true)
+			cfg := NewConfig("test")
 
 			if len(cfg.PoolWhitelist) != len(tt.want) {
 				t.Errorf("PoolWhitelist length = %d, want %d", len(cfg.PoolWhitelist), len(tt.want))

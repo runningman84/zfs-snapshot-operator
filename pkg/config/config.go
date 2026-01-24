@@ -9,7 +9,7 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	TestMode bool
+	Mode string // Operation mode: test, direct, or chroot
 
 	MaxHourlySnapshots  int
 	MaxDailySnapshots   int
@@ -23,18 +23,25 @@ type Config struct {
 	// Scrub monitoring
 	ScrubAgeThresholdDays int // Number of days before warning about old scrubs
 
+	// Chroot configuration
+	ChrootHostPath string // Path to host root for chroot mode (default: /host)
+	ChrootBinPath  string // Path to ZFS binaries in chroot mode (default: /usr/local/sbin)
+
 	// Commands
 	ZFSListPoolsCmd      []string
 	ZFSListSnapshotsCmd  []string
 	ZFSCreateSnapshotCmd []string
 	ZFSDeleteSnapshotCmd []string
 	ZPoolStatusCmd       []string
+	ZPoolVersionCmd      []string
+	ZFSVersionCmd        []string
 }
 
 // NewConfig creates a new configuration with default values
-func NewConfig(testMode bool) *Config {
+// mode can be: "test" (use test files), "direct" (no chroot), "chroot" (production with chroot)
+func NewConfig(mode string) *Config {
 	cfg := &Config{
-		TestMode:              testMode,
+		Mode:                  mode,
 		MaxHourlySnapshots:    getEnvAsInt("MAX_HOURLY_SNAPSHOTS", 24),
 		MaxDailySnapshots:     getEnvAsInt("MAX_DAILY_SNAPSHOTS", 7),
 		MaxWeeklySnapshots:    getEnvAsInt("MAX_WEEKLY_SNAPSHOTS", 4),
@@ -42,22 +49,41 @@ func NewConfig(testMode bool) *Config {
 		MaxYearlySnapshots:    getEnvAsInt("MAX_YEARLY_SNAPSHOTS", 3),
 		PoolWhitelist:         getEnvAsStringSlice("POOL_WHITELIST", []string{}),
 		ScrubAgeThresholdDays: getEnvAsInt("SCRUB_AGE_THRESHOLD_DAYS", 90),
+		ChrootHostPath:        getEnvAsString("CHROOT_HOST_PATH", "/host"),
+		ChrootBinPath:         getEnvAsString("CHROOT_BIN_PATH", "/usr/local/sbin"),
 	}
 
-	if testMode {
+	switch mode {
+	case "test":
+		// Use test files for testing
 		cfg.ZFSListPoolsCmd = []string{"cat", "test/zfs_list_pools.json"}
 		cfg.ZFSListSnapshotsCmd = []string{"cat", "test/zfs_list_snapshots.json"}
 		cfg.ZFSCreateSnapshotCmd = []string{"true"}
 		cfg.ZFSDeleteSnapshotCmd = []string{"true"}
 		cfg.ZPoolStatusCmd = []string{"cat", "test/zpool_status.json"}
-	} else {
-		zfsBin := []string{"chroot", "/host", "/usr/local/sbin/zfs"}
-		zpoolBin := []string{"chroot", "/host", "/usr/local/sbin/zpool"}
+		cfg.ZPoolVersionCmd = []string{"cat", "test/zpool_version.json"}
+		cfg.ZFSVersionCmd = []string{"cat", "test/zfs_version.json"}
+	case "direct":
+		// Direct access without chroot (e.g., for local development)
+		// Uses zfs and zpool from $PATH
+		cfg.ZFSListPoolsCmd = []string{"zfs", "list", "-j"}
+		cfg.ZFSListSnapshotsCmd = []string{"zfs", "list", "-j", "-t", "snapshot"}
+		cfg.ZFSCreateSnapshotCmd = []string{"zfs", "snapshot"}
+		cfg.ZFSDeleteSnapshotCmd = []string{"zfs", "destroy"}
+		cfg.ZPoolStatusCmd = []string{"zpool", "status", "-j"}
+		cfg.ZPoolVersionCmd = []string{"zpool", "version", "-j"}
+		cfg.ZFSVersionCmd = []string{"zfs", "version", "-j"}
+	case "chroot":
+		// Production mode with chroot to access host ZFS
+		zfsBin := []string{"chroot", cfg.ChrootHostPath, cfg.ChrootBinPath + "/zfs"}
+		zpoolBin := []string{"chroot", cfg.ChrootHostPath, cfg.ChrootBinPath + "/zpool"}
 		cfg.ZFSListPoolsCmd = append(zfsBin, "list", "-j")
 		cfg.ZFSListSnapshotsCmd = append(zfsBin, "list", "-j", "-t", "snapshot")
 		cfg.ZFSCreateSnapshotCmd = append(zfsBin, "snapshot")
 		cfg.ZFSDeleteSnapshotCmd = append(zfsBin, "destroy")
 		cfg.ZPoolStatusCmd = append(zpoolBin, "status", "-j")
+		cfg.ZPoolVersionCmd = append(zpoolBin, "version", "-j")
+		cfg.ZFSVersionCmd = append(zfsBin, "version", "-j")
 	}
 
 	return cfg
@@ -143,6 +169,16 @@ func getEnvAsStringSlice(key string, defaultValue []string) []string {
 	}
 
 	return result
+}
+
+// getEnvAsString gets an environment variable as a string,
+// or returns the default value if not set
+func getEnvAsString(key string, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }
 
 // IsPoolAllowed checks if a pool is in the whitelist (or if whitelist is empty, all pools are allowed)

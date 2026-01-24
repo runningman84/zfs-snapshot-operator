@@ -39,6 +39,37 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.tag }}
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Build Go binary
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          BINARY_NAME="zfs-snapshot-operator-linux-${{ matrix.arch }}"
+          echo "Building ${BINARY_NAME} with version ${VERSION}"
+          go build -v -ldflags="-w -s -X main.Version=${VERSION}" -o "${BINARY_NAME}" ./cmd/operator
+          chmod +x "${BINARY_NAME}"
+          ./${BINARY_NAME} -version
+          tar -czf "${BINARY_NAME}.tar.gz" "${BINARY_NAME}"
+          sha256sum "${BINARY_NAME}.tar.gz" > "${BINARY_NAME}.tar.gz.sha256"
+          echo "Binary size: $(du -h ${BINARY_NAME} | cut -f1)"
+          echo "Archive size: $(du -h ${BINARY_NAME}.tar.gz | cut -f1)"
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: binary-${{ matrix.arch }}
+          path: |
+            zfs-snapshot-operator-linux-${{ matrix.arch }}.tar.gz
+            zfs-snapshot-operator-linux-${{ matrix.arch }}.tar.gz.sha256
+          retention-days: 1
+
       - name: Debug info
         run: |
           echo "Building for: ${{ matrix.platform }}"
@@ -328,3 +359,53 @@ jobs:
           echo "Pushing Helm chart: $CHART_FILE (version: $CHART_VERSION)"
           helm push $CHART_FILE oci://ghcr.io/${{ github.repository_owner }}/charts
           echo "Successfully pushed to: oci://ghcr.io/${{ github.repository_owner }}/charts/${CHART_NAME}:$CHART_VERSION"
+
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: binary-*
+          path: ./binaries
+          merge-multiple: true
+
+      - name: Upload binaries to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          echo "Uploading binaries to release ${TAG}"
+
+          cd binaries
+          ls -lh
+
+          gh release upload "${TAG}" \
+            zfs-snapshot-operator-linux-amd64.tar.gz \
+            zfs-snapshot-operator-linux-amd64.tar.gz.sha256 \
+            zfs-snapshot-operator-linux-arm64.tar.gz \
+            zfs-snapshot-operator-linux-arm64.tar.gz.sha256 \
+            --clobber
+
+          echo "✅ Binaries uploaded to release"
+
+      - name: Release Summary
+        run: |
+          echo "## 🚀 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Version: \`${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Published Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Docker Images" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ github.repository }}:${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Multi-architecture: linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Go Binaries" >> $GITHUB_STEP_SUMMARY
+          echo "- \`zfs-snapshot-operator-linux-amd64.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`zfs-snapshot-operator-linux-arm64.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+          echo "- SHA256 checksums included" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Helm Chart" >> $GITHUB_STEP_SUMMARY
+          echo "- \`oci://ghcr.io/${{ github.repository_owner }}/charts/${{ github.event.repository.name }}:${{ steps.helm-package.outputs.chart_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Security Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- SBOMs (SPDX and CycloneDX formats)" >> $GITHUB_STEP_SUMMARY
+          echo "- Vulnerability reports (Grype)" >> $GITHUB_STEP_SUMMARY

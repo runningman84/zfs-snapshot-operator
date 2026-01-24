@@ -1,6 +1,13 @@
 # Example values file for ZFS Snapshot Operator
 # This file demonstrates how to customize snapshot retention settings
 
+# Operator configuration
+# For Kubernetes deployments, use chroot mode (default)
+operator:
+  mode: chroot
+  chrootHostPath: /host
+  chrootBinPath: /usr/local/sbin
+
 # Snapshot retention configuration
 # Adjust these values based on your backup retention requirements
 snapshots:

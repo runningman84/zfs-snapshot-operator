@@ -1,6 +1,7 @@
 package zfs
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os/exec"
@@ -21,6 +22,33 @@ func NewManager(cfg *config.Config) *Manager {
 	return &Manager{
 		config: cfg,
 	}
+}
+
+// VersionInfo holds ZFS version information
+type VersionInfo struct {
+	Userland string `json:"userland"`
+	Kernel   string `json:"kernel"`
+}
+
+// VersionOutput is the complete version JSON output
+type VersionOutput struct {
+	ZFSVersion VersionInfo `json:"zfs_version"`
+}
+
+// GetVersion retrieves ZFS userland and kernel versions
+func (m *Manager) GetVersion() (string, string, error) {
+	cmd := exec.Command(m.config.ZFSVersionCmd[0], m.config.ZFSVersionCmd[1:]...)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("zfs version command failed: %w", err)
+	}
+
+	var versionOutput VersionOutput
+	if err := json.Unmarshal(output, &versionOutput); err != nil {
+		return "", "", fmt.Errorf("failed to parse version JSON: %w", err)
+	}
+
+	return versionOutput.ZFSVersion.Userland, versionOutput.ZFSVersion.Kernel, nil
 }
 
 // GetPools retrieves all ZFS pools
@@ -71,7 +99,7 @@ func (m *Manager) DeleteSnapshot(snapshot *models.Snapshot) error {
 	snapshotPath := fmt.Sprintf("%s/%s@%s", snapshot.PoolName, snapshot.FilesystemName, snapshot.SnapshotName)
 
 	var cmd *exec.Cmd
-	if m.config.TestMode {
+	if m.config.Mode == "test" {
 		cmd = exec.Command(m.config.ZFSDeleteSnapshotCmd[0], m.config.ZFSDeleteSnapshotCmd[1:]...)
 	} else {
 		args := append(m.config.ZFSDeleteSnapshotCmd, snapshotPath)
@@ -93,7 +121,7 @@ func (m *Manager) CreateSnapshot(snapshot *models.Snapshot) error {
 	snapshotPath := fmt.Sprintf("%s/%s@%s", snapshot.PoolName, snapshot.FilesystemName, snapshot.SnapshotName)
 
 	var cmd *exec.Cmd
-	if m.config.TestMode {
+	if m.config.Mode == "test" {
 		cmd = exec.Command(m.config.ZFSCreateSnapshotCmd[0], m.config.ZFSCreateSnapshotCmd[1:]...)
 	} else {
 		args := append(m.config.ZFSCreateSnapshotCmd, snapshotPath)

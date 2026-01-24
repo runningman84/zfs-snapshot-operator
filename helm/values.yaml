@@ -2,6 +2,16 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# Operator configuration
+operator:
+  # Operation mode: test, direct, or chroot
+  # For Kubernetes deployments with hostPID, use chroot mode
+  mode: chroot
+  # Path to host root for chroot mode
+  chrootHostPath: /host
+  # Path to ZFS binaries in chroot mode
+  chrootBinPath: /usr/local/sbin
+
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
   repository: ghcr.io/runningman84/zfs-snapshot-operator

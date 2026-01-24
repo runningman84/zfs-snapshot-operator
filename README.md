@@ -30,6 +30,26 @@ The operator runs as a Kubernetes CronJob that:
 
 ## Installation
 
+### Download Pre-built Binaries
+
+Download the latest release for your platform:
+
+```bash
+# AMD64
+wget https://github.com/runningman84/zfs-snapshot-operator/releases/latest/download/zfs-snapshot-operator-linux-amd64.tar.gz
+tar -xzf zfs-snapshot-operator-linux-amd64.tar.gz
+./zfs-snapshot-operator-linux-amd64 -version
+
+# ARM64
+wget https://github.com/runningman84/zfs-snapshot-operator/releases/latest/download/zfs-snapshot-operator-linux-arm64.tar.gz
+tar -xzf zfs-snapshot-operator-linux-arm64.tar.gz
+./zfs-snapshot-operator-linux-arm64 -version
+
+# Verify checksum
+wget https://github.com/runningman84/zfs-snapshot-operator/releases/latest/download/zfs-snapshot-operator-linux-amd64.tar.gz.sha256
+sha256sum -c zfs-snapshot-operator-linux-amd64.tar.gz.sha256
+```
+
 ### Using Helm
 
 ```bash
@@ -97,6 +117,8 @@ The operator is configured through environment variables, which can be set in th
 | `MAX_YEARLY_SNAPSHOTS` | Maximum number of yearly snapshots to retain | `3` |
 | `POOL_WHITELIST` | Comma-separated list of pools to manage (empty = all pools) | `""` |
 | `SCRUB_AGE_THRESHOLD_DAYS` | Number of days before warning about old scrubs | `90` |
+| `CHROOT_HOST_PATH` | Host root path for chroot mode | `/host` |
+| `CHROOT_BIN_PATH` | Path to ZFS binaries in chroot mode | `/usr/local/sbin` |
 
 ### Helm Values
 
@@ -204,6 +226,59 @@ The operator logs pool states and errors:
 
 ## Development
 
+### Command Line Options
+
+```bash
+# Show version
+./operator -version
+
+# Run with default mode (direct)
+./operator
+
+# Specify operation mode
+./operator -mode <mode>
+```
+
+### Operation Modes
+
+The operator supports three operation modes via the `-mode` flag:
+
+**Test Mode** (`-mode test`):
+- Uses test data files from `test/` directory
+- No actual ZFS commands are executed
+- Perfect for development and CI/CD testing
+- Default in test environments
+
+```bash
+./operator -mode test
+```
+
+**Direct Mode** (`-mode direct`):
+- Direct access to ZFS commands (default)
+- Uses `zfs` and `zpool` from system $PATH
+- No chroot wrapper
+- Ideal for local development or when operator runs on the ZFS host directly
+
+```bash
+./operator -mode direct  # or just ./operator
+```
+
+**Chroot Mode** (`-mode chroot`):
+- Production mode for containerized deployments
+- Uses chroot to access host ZFS from container
+- Commands use `chroot /host /usr/local/sbin/zfs` (configurable via `CHROOT_HOST_PATH` and `CHROOT_BIN_PATH`)
+- Required when running in Kubernetes with hostPID
+
+```bash
+./operator -mode chroot
+
+# Custom host mount path
+CHROOT_HOST_PATH=/custom/host ./operator -mode chroot
+
+# Custom ZFS binary path
+CHROOT_BIN_PATH=/usr/sbin ./operator -mode chroot
+```
+
 ### Building
 
 ```bash
@@ -224,15 +299,15 @@ Current test coverage:
 - `pkg/parser`: 95.2%
 - `pkg/zfs`: 60.6%
 
-### Test Mode
+### Running in Test Mode
 
-The operator includes a test mode for development. Set `TestMode: true` in [cmd/operator/main.go](cmd/operator/main.go#L12):
+For development and testing, run the operator in test mode:
 
-```go
-cfg := config.NewConfig(true)  // true = test mode
+```bash
+./operator -mode test
 ```
 
-In test mode, the operator uses test data files from the `test/` directory instead of executing ZFS commands.
+In test mode, the operator uses test data files from the `test/` directory instead of executing actual ZFS commands.
 
 ### Project Structure
 
