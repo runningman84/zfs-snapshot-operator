@@ -6,16 +6,16 @@
 snapshots:
   # Keep 48 hours worth of hourly snapshots (2 days)
   maxHourly: 48
-  
+
   # Keep 14 days worth of daily snapshots (2 weeks)
   maxDaily: 14
-  
+
   # Keep 8 weeks worth of weekly snapshots (2 months)
   maxWeekly: 8
-  
+
   # Keep 24 months worth of monthly snapshots (2 years)
   maxMonthly: 24
-  
+
   # Keep 5 years worth of yearly snapshots
   maxYearly: 5
 
@@ -31,9 +31,9 @@ pools:
 cronjob:
   # Run every hour
   schedule: "0 * * * *"
-  
+
   # Run every 15 minutes for more frequent snapshots
   # schedule: "*/15 * * * *"
-  
+
   # Run daily at 2 AM
   # schedule: "0 2 * * *"

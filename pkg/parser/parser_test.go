@@ -49,7 +49,7 @@ func TestParseSnapshotsJSON(t *testing.T) {
 	if snapshots[0].PoolName != "tank" && snapshots[0].PoolName != "pool" {
 		t.Errorf("snapshots[0].PoolName = %v, want tank or pool", snapshots[0].PoolName)
 	}
-	
+
 	// Find hourly snapshot
 	found := false
 	for _, snap := range snapshots {
@@ -66,7 +66,7 @@ func TestParseSnapshotsJSON(t *testing.T) {
 	if !found {
 		t.Error("hourly snapshot not found")
 	}
-	
+
 	// Find manual snapshot (no frequency)
 	foundManual := false
 	for _, snap := range snapshots {

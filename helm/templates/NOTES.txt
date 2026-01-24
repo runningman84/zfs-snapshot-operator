@@ -24,4 +24,3 @@ To view job history:
 
 To view logs from the latest run:
   kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} --tail=100
-

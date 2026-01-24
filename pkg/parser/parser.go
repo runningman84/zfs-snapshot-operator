@@ -78,7 +78,7 @@ func ParsePoolsJSON(data []byte) ([]*models.Pool, error) {
 		// Split the name to get pool and filesystem parts
 		poolName := dataset.Pool
 		filesystemName := ""
-		
+
 		// If the dataset name is different from pool name, extract filesystem
 		if dataset.Name != dataset.Pool {
 			filesystemName = dataset.Name
@@ -95,18 +95,18 @@ func ParsePoolsJSON(data []byte) ([]*models.Pool, error) {
 
 // ZPoolStatusJSON represents zpool status in JSON format
 type ZPoolStatusJSON struct {
-	Name       string              `json:"name"`
-	State      string              `json:"state"`
-	Status     string              `json:"status"`
-	Action     string              `json:"action"`
-	ErrorCount string              `json:"error_count"`
+	Name       string               `json:"name"`
+	State      string               `json:"state"`
+	Status     string               `json:"status"`
+	Action     string               `json:"action"`
+	ErrorCount string               `json:"error_count"`
 	Scan       *ZPoolStatusScanJSON `json:"scan,omitempty"`
 }
 
 // ZPoolStatusScanJSON represents the scan/scrub information
 type ZPoolStatusScanJSON struct {
-	Function  string `json:"function"`  // "scrub" or "resilver"
-	State     string `json:"state"`     // "finished", "in_progress", etc.
+	Function  string `json:"function"` // "scrub" or "resilver"
+	State     string `json:"state"`    // "finished", "in_progress", etc.
 	StartTime int64  `json:"start_time"`
 	EndTime   int64  `json:"end_time"`
 }
