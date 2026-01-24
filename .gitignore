@@ -20,6 +20,9 @@ vendor/
 # Go workspace file
 go.work
 
+# Built binary
+operator
+
 # Python
 __pycache__/
 *.pyc
@@ -74,6 +77,3 @@ logs/
 # Kubernetes local config
 kubeconfig
 *.kubeconfig
-
-# binary
-operator
