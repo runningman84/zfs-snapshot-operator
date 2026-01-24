@@ -1,15 +1,39 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 
 	"github.com/runningman84/zfs-snapshot-operator/pkg/config"
 	"github.com/runningman84/zfs-snapshot-operator/pkg/operator"
 )
 
+// Version can be set at build time using -ldflags
+// Example: go build -ldflags="-X main.Version=1.0.0"
+var Version = "dev"
+
 func main() {
-	// Create configuration (TestMode is disabled for production)
-	cfg := config.NewConfig(false)
+	// Parse command line flags
+	mode := flag.String("mode", "direct", "Operation mode: test, direct, or chroot")
+	showVersion := flag.Bool("version", false, "Show version and exit")
+	flag.Parse()
+
+	// Show version if requested
+	if *showVersion {
+		fmt.Printf("zfs-snapshot-operator version %s\n", Version)
+		return
+	}
+
+	// Validate mode
+	if *mode != "test" && *mode != "direct" && *mode != "chroot" {
+		log.Fatalf("Invalid mode: %s. Must be one of: test, direct, chroot", *mode)
+	}
+
+	log.Printf("Starting zfs-snapshot-operator version %s in %s mode", Version, *mode)
+
+	// Create configuration with specified mode
+	cfg := config.NewConfig(*mode)
 
 	// Create and run operator
 	op := operator.NewOperator(cfg)

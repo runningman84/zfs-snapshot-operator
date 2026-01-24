@@ -30,6 +30,14 @@ func (o *Operator) Run() error {
 
 	o.logConfig(now)
 
+	// Get and log ZFS version information
+	userland, kernel, err := o.manager.GetVersion()
+	if err != nil {
+		log.Printf("Warning: failed to get ZFS version: %v", err)
+	} else {
+		log.Printf("ZFS Version - Userland: %s, Kernel: %s", userland, kernel)
+	}
+
 	// Get pool health status first
 	poolStatus, err := o.manager.GetPoolStatus()
 	if err != nil {
@@ -62,16 +70,16 @@ func (o *Operator) logConfig(now time.Time) {
 	} else {
 		log.Printf("Pool whitelist: all pools")
 	}
-	log.Printf("Max hourly snapshot age: %v", o.config.GetMaxSnapshotDate("hourly", now))
-	log.Printf("Max daily snapshot age: %v", o.config.GetMaxSnapshotDate("daily", now))
-	log.Printf("Max weekly snapshot age: %v", o.config.GetMaxSnapshotDate("weekly", now))
-	log.Printf("Max monthly snapshot age: %v", o.config.GetMaxSnapshotDate("monthly", now))
-	log.Printf("Max yearly snapshot age: %v", o.config.GetMaxSnapshotDate("yearly", now))
-	log.Printf("Min hourly snapshot age: %v", o.config.GetMinSnapshotDate("hourly", now))
-	log.Printf("Min daily snapshot age: %v", o.config.GetMinSnapshotDate("daily", now))
-	log.Printf("Min weekly snapshot age: %v", o.config.GetMinSnapshotDate("weekly", now))
-	log.Printf("Min monthly snapshot age: %v", o.config.GetMinSnapshotDate("monthly", now))
-	log.Printf("Min yearly snapshot age: %v", o.config.GetMinSnapshotDate("yearly", now))
+	log.Printf("Max hourly snapshot age: %s", o.config.GetMaxSnapshotDate("hourly", now).Format("2006-01-02 15:04:05"))
+	log.Printf("Max daily snapshot age: %s", o.config.GetMaxSnapshotDate("daily", now).Format("2006-01-02 15:04:05"))
+	log.Printf("Max weekly snapshot age: %s", o.config.GetMaxSnapshotDate("weekly", now).Format("2006-01-02 15:04:05"))
+	log.Printf("Max monthly snapshot age: %s", o.config.GetMaxSnapshotDate("monthly", now).Format("2006-01-02 15:04:05"))
+	log.Printf("Max yearly snapshot age: %s", o.config.GetMaxSnapshotDate("yearly", now).Format("2006-01-02 15:04:05"))
+	log.Printf("Min hourly snapshot age: %s", o.config.GetMinSnapshotDate("hourly", now).Format("2006-01-02 15:04:05"))
+	log.Printf("Min daily snapshot age: %s", o.config.GetMinSnapshotDate("daily", now).Format("2006-01-02 15:04:05"))
+	log.Printf("Min weekly snapshot age: %s", o.config.GetMinSnapshotDate("weekly", now).Format("2006-01-02 15:04:05"))
+	log.Printf("Min monthly snapshot age: %s", o.config.GetMinSnapshotDate("monthly", now).Format("2006-01-02 15:04:05"))
+	log.Printf("Min yearly snapshot age: %s", o.config.GetMinSnapshotDate("yearly", now).Format("2006-01-02 15:04:05"))
 }
 
 func (o *Operator) processPool(pool *models.Pool, now time.Time, poolStatus map[string]*models.PoolStatus) error {

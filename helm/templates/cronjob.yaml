@@ -36,6 +36,9 @@ spec:
           - name: {{ .Chart.Name }}
             image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
             imagePullPolicy: {{ .Values.image.pullPolicy }}
+            args:
+              - "-mode"
+              - {{ .Values.operator.mode | quote }}
             env:
               - name: MAX_HOURLY_SNAPSHOTS
                 value: {{ .Values.snapshots.maxHourly | quote }}
@@ -53,6 +56,12 @@ spec:
               {{- end }}
               - name: SCRUB_AGE_THRESHOLD_DAYS
                 value: {{ .Values.monitoring.scrubAgeThresholdDays | quote }}
+              {{- if eq .Values.operator.mode "chroot" }}
+              - name: CHROOT_HOST_PATH
+                value: {{ .Values.operator.chrootHostPath | quote }}
+              - name: CHROOT_BIN_PATH
+                value: {{ .Values.operator.chrootBinPath | quote }}
+              {{- end }}
             {{- with .Values.resources }}
             resources:
               {{- toYaml . | nindent 14 }}

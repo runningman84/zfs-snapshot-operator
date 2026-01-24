@@ -1,6 +1,9 @@
 # Build stage
 FROM golang:1.25-alpine AS builder
 
+# Version can be passed as build argument
+ARG VERSION=dev
+
 # Install build dependencies
 RUN apk add --no-cache git make
 
@@ -16,8 +19,8 @@ COPY pkg/ pkg/
 # Download dependencies and populate go.sum with all transitive dependencies
 RUN go mod download && go mod tidy
 
-# Build the operator
-RUN CGO_ENABLED=0 GOOS=linux go build -v -ldflags="-w -s" -o operator ./cmd/operator
+# Build the operator with version
+RUN CGO_ENABLED=0 GOOS=linux go build -v -ldflags="-w -s -X main.Version=${VERSION}" -o operator ./cmd/operator
 
 # Runtime stage
 FROM alpine:3.23.2
@@ -30,4 +33,5 @@ WORKDIR /app
 # Copy the binary from builder
 COPY --from=builder /workspace/operator .
 
-ENTRYPOINT ["/app/operator"]
+# Default mode is direct
+ENTRYPOINT ["/app/operator", "-mode", "direct"]
