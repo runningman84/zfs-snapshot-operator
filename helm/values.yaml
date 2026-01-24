@@ -7,6 +7,15 @@ operator:
   # Operation mode: test, direct, or chroot
   # For Kubernetes deployments with hostPID, use chroot mode
   mode: chroot
+  # Log level: info or debug
+  # Debug mode prints all executed commands
+  logLevel: info
+  # Dry-run mode: if true, log what would be deleted but don't actually delete
+  dryRun: false
+  # Maximum number of snapshots to delete in a single run (safety limit)
+  maxDeletionsPerRun: 100
+  # Path to lock file for preventing concurrent runs
+  lockFilePath: /tmp/zfs-snapshot-operator.lock
   # Path to host root for chroot mode
   chrootHostPath: /host
   # Path to ZFS binaries in chroot mode
@@ -53,6 +62,13 @@ pools:
   whitelist: ""
   # Example: "tank,backup" to only manage tank and backup pools
   # Example: "" to manage all pools (default)
+# Filesystem filtering
+# Comma-separated list of filesystems to manage snapshots for
+# If empty, all filesystems will be managed
+filesystems:
+  whitelist: ""
+  # Example: "data,media" to only manage data and media filesystems
+  # Example: "" to manage all filesystems (default)
 # Pool health monitoring
 monitoring:
   # Number of days before warning about old scrubs (default: 90)

@@ -33,6 +33,11 @@ func TestNewConfig(t *testing.T) {
 				t.Errorf("Mode = %v, want %v", cfg.Mode, tt.mode)
 			}
 
+			// Check default log level
+			if cfg.LogLevel != "info" {
+				t.Errorf("LogLevel = %v, want info", cfg.LogLevel)
+			}
+
 			// Check default values
 			if cfg.MaxHourlySnapshots != 24 {
 				t.Errorf("MaxHourlySnapshots = %d, want 24", cfg.MaxHourlySnapshots)
@@ -82,6 +87,84 @@ func TestNewConfig(t *testing.T) {
 				if cfg.ZFSListPoolsCmd[0] != "zfs" {
 					t.Errorf("Expected direct command 'zfs', got '%s'", cfg.ZFSListPoolsCmd[0])
 				}
+			}
+		})
+	}
+}
+
+func TestIsDebug(t *testing.T) {
+	tests := []struct {
+		name     string
+		logLevel string
+		want     bool
+	}{
+		{
+			name:     "debug mode",
+			logLevel: "debug",
+			want:     true,
+		},
+		{
+			name:     "info mode",
+			logLevel: "info",
+			want:     false,
+		},
+		{
+			name:     "empty log level",
+			logLevel: "",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NewConfig("test")
+			cfg.LogLevel = tt.logLevel
+			if got := cfg.IsDebug(); got != tt.want {
+				t.Errorf("IsDebug() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsFilesystemAllowed(t *testing.T) {
+	tests := []struct {
+		name        string
+		whitelist   []string
+		filesystem  string
+		wantAllowed bool
+	}{
+		{
+			name:        "empty whitelist allows all",
+			whitelist:   []string{},
+			filesystem:  "tank/data",
+			wantAllowed: true,
+		},
+		{
+			name:        "filesystem in whitelist",
+			whitelist:   []string{"tank/data", "tank/backup"},
+			filesystem:  "tank/data",
+			wantAllowed: true,
+		},
+		{
+			name:        "filesystem not in whitelist",
+			whitelist:   []string{"tank/data", "tank/backup"},
+			filesystem:  "tank/media",
+			wantAllowed: false,
+		},
+		{
+			name:        "exact match required",
+			whitelist:   []string{"tank/data"},
+			filesystem:  "tank/data/subfolder",
+			wantAllowed: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NewConfig("test")
+			cfg.FilesystemWhitelist = tt.whitelist
+			if got := cfg.IsFilesystemAllowed(tt.filesystem); got != tt.wantAllowed {
+				t.Errorf("IsFilesystemAllowed(%s) = %v, want %v", tt.filesystem, got, tt.wantAllowed)
 			}
 		})
 	}
@@ -488,6 +571,137 @@ func TestNewConfigWithPoolWhitelist(t *testing.T) {
 					t.Errorf("PoolWhitelist[%d] = %s, want %s", i, cfg.PoolWhitelist[i], tt.want[i])
 				}
 			}
+		})
+	}
+}
+
+func TestDryRunEnvironmentVariable(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     bool
+	}{
+		{
+			name:     "dry-run enabled",
+			envValue: "true",
+			want:     true,
+		},
+		{
+			name:     "dry-run disabled",
+			envValue: "false",
+			want:     false,
+		},
+		{
+			name:     "dry-run default (not set)",
+			envValue: "",
+			want:     false,
+		},
+		{
+			name:     "dry-run with 1",
+			envValue: "1",
+			want:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				os.Setenv("DRY_RUN", tt.envValue)
+			} else {
+				os.Unsetenv("DRY_RUN")
+			}
+
+			cfg := NewConfig("test")
+
+			if cfg.DryRun != tt.want {
+				t.Errorf("DryRun = %v, want %v", cfg.DryRun, tt.want)
+			}
+
+			os.Unsetenv("DRY_RUN")
+		})
+	}
+}
+
+func TestMaxDeletionsPerRunEnvironmentVariable(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     int
+	}{
+		{
+			name:     "default deletion limit",
+			envValue: "",
+			want:     100,
+		},
+		{
+			name:     "custom deletion limit",
+			envValue: "50",
+			want:     50,
+		},
+		{
+			name:     "low deletion limit",
+			envValue: "1",
+			want:     1,
+		},
+		{
+			name:     "high deletion limit",
+			envValue: "1000",
+			want:     1000,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				os.Setenv("MAX_DELETIONS_PER_RUN", tt.envValue)
+			} else {
+				os.Unsetenv("MAX_DELETIONS_PER_RUN")
+			}
+
+			cfg := NewConfig("test")
+
+			if cfg.MaxDeletionsPerRun != tt.want {
+				t.Errorf("MaxDeletionsPerRun = %d, want %d", cfg.MaxDeletionsPerRun, tt.want)
+			}
+
+			os.Unsetenv("MAX_DELETIONS_PER_RUN")
+		})
+	}
+}
+
+func TestLockFilePathEnvironmentVariable(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     string
+	}{
+		{
+			name:     "default lock file path",
+			envValue: "",
+			want:     "/tmp/zfs-snapshot-operator.lock",
+		},
+		{
+			name:     "custom lock file path",
+			envValue: "/var/run/zfs-operator.lock",
+			want:     "/var/run/zfs-operator.lock",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				os.Setenv("LOCK_FILE_PATH", tt.envValue)
+			} else {
+				os.Unsetenv("LOCK_FILE_PATH")
+			}
+
+			cfg := NewConfig("test")
+
+			if cfg.LockFilePath != tt.want {
+				t.Errorf("LockFilePath = %s, want %s", cfg.LockFilePath, tt.want)
+			}
+
+			os.Unsetenv("LOCK_FILE_PATH")
 		})
 	}
 }

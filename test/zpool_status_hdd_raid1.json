@@ -1,0 +1,79 @@
+{
+  "output_version": {
+    "command": "zpool status",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "pools": {
+    "tank": {
+      "name": "tank",
+      "state": "ONLINE",
+      "pool_guid": "10612767076788093111",
+      "txg": "5949166",
+      "spa_version": "5000",
+      "zpl_version": "5",
+      "vdevs": {
+        "tank": {
+          "name": "tank",
+          "vdev_type": "root",
+          "guid": "10612767076788093111",
+          "class": "normal",
+          "state": "ONLINE",
+          "alloc_space": "9.07T",
+          "total_space": "10.9T",
+          "def_space": "10.9T",
+          "read_errors": "0",
+          "write_errors": "0",
+          "checksum_errors": "0",
+          "vdevs": {
+            "mirror-0": {
+              "name": "mirror-0",
+              "vdev_type": "mirror",
+              "guid": "6805042006209821567",
+              "class": "normal",
+              "state": "ONLINE",
+              "alloc_space": "9.07T",
+              "total_space": "10.9T",
+              "def_space": "10.9T",
+              "rep_dev_size": "10.9T",
+              "read_errors": "0",
+              "write_errors": "0",
+              "checksum_errors": "0",
+              "vdevs": {
+                "sda": {
+                  "name": "sda",
+                  "vdev_type": "disk",
+                  "guid": "12733504048608041571",
+                  "path": "/dev/sda1",
+                  "class": "normal",
+                  "state": "ONLINE",
+                  "rep_dev_size": "10.9T",
+                  "phys_space": "10.9T",
+                  "read_errors": "0",
+                  "write_errors": "0",
+                  "checksum_errors": "0",
+                  "slow_ios": "0"
+                },
+                "sdb": {
+                  "name": "sdb",
+                  "vdev_type": "disk",
+                  "guid": "13670837783081014733",
+                  "path": "/dev/sdb1",
+                  "class": "normal",
+                  "state": "ONLINE",
+                  "rep_dev_size": "10.9T",
+                  "phys_space": "10.9T",
+                  "read_errors": "0",
+                  "write_errors": "0",
+                  "checksum_errors": "0",
+                  "slow_ios": "0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "error_count": "0"
+    }
+  }
+}

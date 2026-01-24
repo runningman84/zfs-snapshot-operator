@@ -8,17 +8,146 @@
     "usbstorage": {
       "name": "usbstorage",
       "type": "FILESYSTEM",
-      "pool": "usbstorage"
+      "pool": "usbstorage",
+      "createtxg": "1",
+      "properties": {
+        "used": {
+          "value": "212G",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "1.55T",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "25K",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/var/usbstorage",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        }
+      }
     },
     "usbstorage/private": {
       "name": "usbstorage/private",
       "type": "FILESYSTEM",
-      "pool": "usbstorage"
+      "pool": "usbstorage",
+      "createtxg": "24",
+      "properties": {
+        "used": {
+          "value": "197G",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "1.55T",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "197G",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/var/usbstorage/private",
+          "source": {
+            "type": "INHERITED",
+            "data": "usbstorage"
+          }
+        }
+      }
     },
     "usbstorage/public": {
       "name": "usbstorage/public",
       "type": "FILESYSTEM",
-      "pool": "usbstorage"
+      "pool": "usbstorage",
+      "createtxg": "1015",
+      "properties": {
+        "used": {
+          "value": "30K",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "1.55T",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "30K",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/var/usbstorage/public",
+          "source": {
+            "type": "INHERITED",
+            "data": "usbstorage"
+          }
+        }
+      }
+    },
+    "usbstorage/s3": {
+      "name": "usbstorage/s3",
+      "type": "FILESYSTEM",
+      "pool": "usbstorage",
+      "createtxg": "20732029",
+      "properties": {
+        "used": {
+          "value": "15.2G",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "1.55T",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "15.2G",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/var/usbstorage/s3",
+          "source": {
+            "type": "INHERITED",
+            "data": "usbstorage"
+          }
+        }
+      }
     }
   }
 }

@@ -24,6 +24,26 @@ func NewManager(cfg *config.Config) *Manager {
 	}
 }
 
+// logCommand logs the command being executed if debug mode is enabled
+func (m *Manager) logCommand(cmdArgs []string) {
+	if m.config.IsDebug() {
+		log.Printf("[DEBUG] Executing command: %v", cmdArgs)
+	}
+}
+
+// logCommandResult logs the command result if debug mode is enabled
+func (m *Manager) logCommandResult(exitCode int, stdout, stderr []byte) {
+	if m.config.IsDebug() {
+		log.Printf("[DEBUG] Exit code: %d", exitCode)
+		if len(stdout) > 0 {
+			log.Printf("[DEBUG] stdout: %s", string(stdout))
+		}
+		if len(stderr) > 0 {
+			log.Printf("[DEBUG] stderr: %s", string(stderr))
+		}
+	}
+}
+
 // VersionInfo holds ZFS version information
 type VersionInfo struct {
 	Userland string `json:"userland"`
@@ -37,11 +57,18 @@ type VersionOutput struct {
 
 // GetVersion retrieves ZFS userland and kernel versions
 func (m *Manager) GetVersion() (string, string, error) {
+	m.logCommand(m.config.ZFSVersionCmd)
 	cmd := exec.Command(m.config.ZFSVersionCmd[0], m.config.ZFSVersionCmd[1:]...)
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
+	exitCode := 0
 	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		}
+		m.logCommandResult(exitCode, output, nil)
 		return "", "", fmt.Errorf("zfs version command failed: %w", err)
 	}
+	m.logCommandResult(0, output, nil)
 
 	var versionOutput VersionOutput
 	if err := json.Unmarshal(output, &versionOutput); err != nil {
@@ -53,11 +80,18 @@ func (m *Manager) GetVersion() (string, string, error) {
 
 // GetPools retrieves all ZFS pools
 func (m *Manager) GetPools() ([]*models.Pool, error) {
+	m.logCommand(m.config.ZFSListPoolsCmd)
 	cmd := exec.Command(m.config.ZFSListPoolsCmd[0], m.config.ZFSListPoolsCmd[1:]...)
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
+	exitCode := 0
 	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		}
+		m.logCommandResult(exitCode, output, nil)
 		return nil, fmt.Errorf("command failed: %w", err)
 	}
+	m.logCommandResult(0, output, nil)
 
 	pools, err := parser.ParsePoolsJSON(output)
 	if err != nil {
@@ -69,11 +103,18 @@ func (m *Manager) GetPools() ([]*models.Pool, error) {
 
 // GetSnapshots retrieves snapshots for a pool/filesystem
 func (m *Manager) GetSnapshots(poolName, filesystemName, frequency string) ([]*models.Snapshot, error) {
+	m.logCommand(m.config.ZFSListSnapshotsCmd)
 	cmd := exec.Command(m.config.ZFSListSnapshotsCmd[0], m.config.ZFSListSnapshotsCmd[1:]...)
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
+	exitCode := 0
 	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		}
+		m.logCommandResult(exitCode, output, nil)
 		return nil, fmt.Errorf("command failed: %w", err)
 	}
+	m.logCommandResult(0, output, nil)
 
 	allSnapshots, err := parser.ParseSnapshotsJSON(output)
 	if err != nil {
@@ -96,20 +137,30 @@ func (m *Manager) GetSnapshots(poolName, filesystemName, frequency string) ([]*m
 func (m *Manager) DeleteSnapshot(snapshot *models.Snapshot) error {
 	log.Printf("Deleting snapshot %s", snapshot.SnapshotName)
 
-	snapshotPath := fmt.Sprintf("%s/%s@%s", snapshot.PoolName, snapshot.FilesystemName, snapshot.SnapshotName)
+	// FilesystemName already includes the pool name (e.g., "usbstorage/private")
+	snapshotPath := fmt.Sprintf("%s@%s", snapshot.FilesystemName, snapshot.SnapshotName)
 
 	var cmd *exec.Cmd
+	var cmdArgs []string
 	if m.config.Mode == "test" {
-		cmd = exec.Command(m.config.ZFSDeleteSnapshotCmd[0], m.config.ZFSDeleteSnapshotCmd[1:]...)
+		cmdArgs = m.config.ZFSDeleteSnapshotCmd
+		cmd = exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	} else {
-		args := append(m.config.ZFSDeleteSnapshotCmd, snapshotPath)
-		cmd = exec.Command(args[0], args[1:]...)
+		cmdArgs = append(m.config.ZFSDeleteSnapshotCmd, snapshotPath)
+		cmd = exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	}
+	m.logCommand(cmdArgs)
 
 	output, err := cmd.CombinedOutput()
+	exitCode := 0
 	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		}
+		m.logCommandResult(exitCode, output, nil)
 		return fmt.Errorf("command failed: %w, output: %s", err, string(output))
 	}
+	m.logCommandResult(0, output, nil)
 
 	return nil
 }
@@ -118,20 +169,30 @@ func (m *Manager) DeleteSnapshot(snapshot *models.Snapshot) error {
 func (m *Manager) CreateSnapshot(snapshot *models.Snapshot) error {
 	log.Printf("Creating snapshot %s", snapshot.SnapshotName)
 
-	snapshotPath := fmt.Sprintf("%s/%s@%s", snapshot.PoolName, snapshot.FilesystemName, snapshot.SnapshotName)
+	// FilesystemName already includes the pool name (e.g., "usbstorage/private")
+	snapshotPath := fmt.Sprintf("%s@%s", snapshot.FilesystemName, snapshot.SnapshotName)
 
 	var cmd *exec.Cmd
+	var cmdArgs []string
 	if m.config.Mode == "test" {
-		cmd = exec.Command(m.config.ZFSCreateSnapshotCmd[0], m.config.ZFSCreateSnapshotCmd[1:]...)
+		cmdArgs = m.config.ZFSCreateSnapshotCmd
+		cmd = exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	} else {
-		args := append(m.config.ZFSCreateSnapshotCmd, snapshotPath)
-		cmd = exec.Command(args[0], args[1:]...)
+		cmdArgs = append(m.config.ZFSCreateSnapshotCmd, snapshotPath)
+		cmd = exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	}
+	m.logCommand(cmdArgs)
 
 	output, err := cmd.CombinedOutput()
+	exitCode := 0
 	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		}
+		m.logCommandResult(exitCode, output, nil)
 		return fmt.Errorf("command failed: %w, output: %s", err, string(output))
 	}
+	m.logCommandResult(0, output, nil)
 
 	return nil
 }
@@ -158,11 +219,18 @@ func (m *Manager) CanSnapshotBeDeleted(snapshot *models.Snapshot, frequency stri
 
 // GetPoolStatus retrieves the status of all ZFS pools
 func (m *Manager) GetPoolStatus() (map[string]*models.PoolStatus, error) {
+	m.logCommand(m.config.ZPoolStatusCmd)
 	cmd := exec.Command(m.config.ZPoolStatusCmd[0], m.config.ZPoolStatusCmd[1:]...)
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
+	exitCode := 0
 	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		}
+		m.logCommandResult(exitCode, output, nil)
 		return nil, fmt.Errorf("command failed: %w", err)
 	}
+	m.logCommandResult(0, output, nil)
 
 	status, err := parser.ParsePoolStatusJSON(output)
 	if err != nil {

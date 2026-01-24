@@ -39,7 +39,17 @@ spec:
             args:
               - "-mode"
               - {{ .Values.operator.mode | quote }}
+              - "-log-level"
+              - {{ .Values.operator.logLevel | quote }}
             env:
+              - name: LOG_LEVEL
+                value: {{ .Values.operator.logLevel | quote }}
+              - name: DRY_RUN
+                value: {{ .Values.operator.dryRun | quote }}
+              - name: MAX_DELETIONS_PER_RUN
+                value: {{ .Values.operator.maxDeletionsPerRun | quote }}
+              - name: LOCK_FILE_PATH
+                value: {{ .Values.operator.lockFilePath | quote }}
               - name: MAX_HOURLY_SNAPSHOTS
                 value: {{ .Values.snapshots.maxHourly | quote }}
               - name: MAX_DAILY_SNAPSHOTS
@@ -53,6 +63,10 @@ spec:
               {{- if .Values.pools.whitelist }}
               - name: POOL_WHITELIST
                 value: {{ .Values.pools.whitelist | quote }}
+              {{- end }}
+              {{- if .Values.filesystems.whitelist }}
+              - name: FILESYSTEM_WHITELIST
+                value: {{ .Values.filesystems.whitelist | quote }}
               {{- end }}
               - name: SCRUB_AGE_THRESHOLD_DAYS
                 value: {{ .Values.monitoring.scrubAgeThresholdDays | quote }}

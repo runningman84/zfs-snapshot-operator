@@ -9,7 +9,13 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	Mode string // Operation mode: test, direct, or chroot
+	Mode     string // Operation mode: test, direct, or chroot
+	LogLevel string // Log level: info or debug
+
+	// Safety features
+	DryRun             bool   // If true, log deletions but don't actually delete
+	MaxDeletionsPerRun int    // Maximum snapshots to delete in one run
+	LockFilePath       string // Path to lock file for preventing concurrent runs
 
 	MaxHourlySnapshots  int
 	MaxDailySnapshots   int
@@ -19,6 +25,9 @@ type Config struct {
 
 	// Pool filtering
 	PoolWhitelist []string // List of pools to process (empty = all pools)
+
+	// Filesystem filtering
+	FilesystemWhitelist []string // List of filesystems to process (empty = all filesystems)
 
 	// Scrub monitoring
 	ScrubAgeThresholdDays int // Number of days before warning about old scrubs
@@ -42,12 +51,17 @@ type Config struct {
 func NewConfig(mode string) *Config {
 	cfg := &Config{
 		Mode:                  mode,
+		LogLevel:              getEnvAsString("LOG_LEVEL", "info"),
+		DryRun:                getEnvAsBool("DRY_RUN", false),
+		MaxDeletionsPerRun:    getEnvAsInt("MAX_DELETIONS_PER_RUN", 100),
+		LockFilePath:          getEnvAsString("LOCK_FILE_PATH", "/tmp/zfs-snapshot-operator.lock"),
 		MaxHourlySnapshots:    getEnvAsInt("MAX_HOURLY_SNAPSHOTS", 24),
 		MaxDailySnapshots:     getEnvAsInt("MAX_DAILY_SNAPSHOTS", 7),
 		MaxWeeklySnapshots:    getEnvAsInt("MAX_WEEKLY_SNAPSHOTS", 4),
 		MaxMonthlySnapshots:   getEnvAsInt("MAX_MONTHLY_SNAPSHOTS", 12),
 		MaxYearlySnapshots:    getEnvAsInt("MAX_YEARLY_SNAPSHOTS", 3),
 		PoolWhitelist:         getEnvAsStringSlice("POOL_WHITELIST", []string{}),
+		FilesystemWhitelist:   getEnvAsStringSlice("FILESYSTEM_WHITELIST", []string{}),
 		ScrubAgeThresholdDays: getEnvAsInt("SCRUB_AGE_THRESHOLD_DAYS", 90),
 		ChrootHostPath:        getEnvAsString("CHROOT_HOST_PATH", "/host"),
 		ChrootBinPath:         getEnvAsString("CHROOT_BIN_PATH", "/usr/local/sbin"),
@@ -196,4 +210,39 @@ func (c *Config) IsPoolAllowed(poolName string) bool {
 	}
 
 	return false
+}
+
+// IsDebug returns true if log level is set to debug
+func (c *Config) IsDebug() bool {
+	return c.LogLevel == "debug"
+}
+
+// IsFilesystemAllowed checks if a filesystem is in the whitelist (or if whitelist is empty, all filesystems are allowed)
+func (c *Config) IsFilesystemAllowed(filesystemName string) bool {
+	// If whitelist is empty, all filesystems are allowed
+	if len(c.FilesystemWhitelist) == 0 {
+		return true
+	}
+
+	// Check if filesystem is in whitelist
+	for _, allowedFilesystem := range c.FilesystemWhitelist {
+		if allowedFilesystem == filesystemName {
+			return true
+		}
+	}
+
+	return false
+}
+
+// getEnvAsBool gets an environment variable as a boolean
+func getEnvAsBool(key string, defaultValue bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	boolValue, err := strconv.ParseBool(value)
+	if err != nil {
+		return defaultValue
+	}
+	return boolValue
 }

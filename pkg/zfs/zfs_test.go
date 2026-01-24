@@ -447,3 +447,140 @@ func TestGetSnapshotsEmpty(t *testing.T) {
 		t.Errorf("GetSnapshots() returned %d snapshots, want 0", len(snapshots))
 	}
 }
+
+func TestSnapshotDeletionSafety(t *testing.T) {
+	// Critical safety tests to ensure recent snapshots are NEVER deleted
+	cfg := config.NewConfig("test")
+	manager := NewManager(cfg)
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name        string
+		snapshot    *models.Snapshot
+		frequency   string
+		shouldKeep  bool
+		description string
+	}{
+		{
+			name: "snapshot created just now - MUST keep",
+			snapshot: &models.Snapshot{
+				DateTime:  now,
+				Frequency: "hourly",
+			},
+			frequency:   "hourly",
+			shouldKeep:  true,
+			description: "Snapshot created at current time must never be deleted",
+		},
+		{
+			name: "snapshot created 1 minute ago - MUST keep",
+			snapshot: &models.Snapshot{
+				DateTime:  now.Add(-1 * time.Minute),
+				Frequency: "hourly",
+			},
+			frequency:   "hourly",
+			shouldKeep:  true,
+			description: "Very recent snapshot must be protected",
+		},
+		{
+			name: "snapshot created 30 minutes ago - MUST keep",
+			snapshot: &models.Snapshot{
+				DateTime:  now.Add(-30 * time.Minute),
+				Frequency: "hourly",
+			},
+			frequency:   "hourly",
+			shouldKeep:  true,
+			description: "Snapshot within minimum age must be kept",
+		},
+		{
+			name: "daily snapshot created today - MUST keep",
+			snapshot: &models.Snapshot{
+				DateTime:  now.Add(-6 * time.Hour),
+				Frequency: "daily",
+			},
+			frequency:   "daily",
+			shouldKeep:  true,
+			description: "Daily snapshot from same day must be kept",
+		},
+		{
+			name: "weekly snapshot created this week - MUST keep",
+			snapshot: &models.Snapshot{
+				DateTime:  now.Add(-3 * 24 * time.Hour),
+				Frequency: "weekly",
+			},
+			frequency:   "weekly",
+			shouldKeep:  true,
+			description: "Weekly snapshot from current week must be kept",
+		},
+		{
+			name: "snapshot at exact retention boundary - MUST keep",
+			snapshot: &models.Snapshot{
+				DateTime:  now.Add(-time.Duration(cfg.MaxHourlySnapshots) * time.Hour),
+				Frequency: "hourly",
+			},
+			frequency:   "hourly",
+			shouldKeep:  true,
+			description: "Snapshot at retention boundary should be kept",
+		},
+		{
+			name: "snapshot beyond retention period - can delete",
+			snapshot: &models.Snapshot{
+				DateTime:  now.Add(-time.Duration(cfg.MaxHourlySnapshots+2) * time.Hour),
+				Frequency: "hourly",
+			},
+			frequency:   "hourly",
+			shouldKeep:  false,
+			description: "Only old snapshots beyond retention should be deletable",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			canDelete := manager.CanSnapshotBeDeleted(tt.snapshot, tt.frequency, now)
+			isRecent := manager.IsSnapshotRecent(tt.snapshot, tt.frequency, now)
+
+			// Critical safety check
+			if tt.shouldKeep && canDelete {
+				t.Errorf("SAFETY VIOLATION: %s - CanSnapshotBeDeleted() = true, want false. %s",
+					tt.name, tt.description)
+			}
+
+			if !tt.shouldKeep && !canDelete {
+				t.Errorf("Retention policy issue: %s - CanSnapshotBeDeleted() = false, want true. %s",
+					tt.name, tt.description)
+			}
+
+			// Verify IsSnapshotRecent is consistent for recent snapshots
+			if tt.shouldKeep && tt.snapshot.DateTime.After(now.Add(-1*time.Hour)) && !isRecent {
+				t.Errorf("Consistency issue: very recent snapshot not marked as recent. %s", tt.description)
+			}
+		})
+	}
+}
+
+func TestSnapshotDeletionSafetyAllFrequencies(t *testing.T) {
+	// Test that snapshots just created for all frequencies are protected
+	cfg := config.NewConfig("test")
+	manager := NewManager(cfg)
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	frequencies := []string{"hourly", "daily", "weekly", "monthly", "yearly"}
+
+	for _, freq := range frequencies {
+		t.Run("current_snapshot_"+freq, func(t *testing.T) {
+			snapshot := &models.Snapshot{
+				DateTime:  now,
+				Frequency: freq,
+			}
+
+			canDelete := manager.CanSnapshotBeDeleted(snapshot, freq, now)
+			if canDelete {
+				t.Errorf("CRITICAL: Current %s snapshot can be deleted! This is a safety violation.", freq)
+			}
+
+			isRecent := manager.IsSnapshotRecent(snapshot, freq, now)
+			if !isRecent {
+				t.Errorf("Current %s snapshot not marked as recent", freq)
+			}
+		})
+	}
+}
