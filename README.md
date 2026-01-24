@@ -16,7 +16,7 @@ A Kubernetes operator for automated ZFS snapshot management with configurable re
   - Logs pool errors (read, write, checksum errors)
   - Logs filesystem usage statistics
 - **Safety Features**:
-  - **Dry-run mode**: Preview deletions without actually deleting
+  - **Dry-run mode**: Preview snapshot operations (create/delete) without actually executing them
   - **Deletion limits**: Maximum number of snapshots to delete per run
   - **Minimum retention**: Never deletes all snapshots - always keeps at least 1
   - **Concurrent run protection**: Lock file prevents multiple instances running simultaneously
@@ -123,7 +123,7 @@ The operator is configured through environment variables, which can be set in th
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `LOG_LEVEL` | Log level: `info` or `debug` (debug prints all executed commands) | `info` |
-| `DRY_RUN` | If `true`, log what would be deleted but don't actually delete snapshots | `false` |
+| `DRY_RUN` | If `true`, log what would be created/deleted but don't actually modify snapshots | `false` |
 | `MAX_DELETIONS_PER_RUN` | Maximum number of snapshots to delete in a single run (safety limit) | `100` |
 | `LOCK_FILE_PATH` | Path to lock file for preventing concurrent runs | `/tmp/zfs-snapshot-operator.lock` |
 | `MAX_HOURLY_SNAPSHOTS` | Maximum number of hourly snapshots to retain | `24` |
@@ -280,6 +280,15 @@ The operator logs pool states and errors:
 
 # Specify operation mode
 ./operator -mode <mode>
+
+# Enable debug logging
+./operator -log-level debug
+
+# Enable dry-run mode (preview deletions without executing)
+./operator -dry-run
+
+# Combine options
+./operator -mode chroot -log-level debug -dry-run
 ```
 
 ### Operation Modes

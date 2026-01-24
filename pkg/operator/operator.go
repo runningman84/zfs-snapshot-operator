@@ -44,10 +44,9 @@ func (o *Operator) Run() error {
 	// Get and log ZFS version information
 	userland, kernel, err := o.manager.GetVersion()
 	if err != nil {
-		log.Printf("Warning: failed to get ZFS version: %v", err)
-	} else {
-		log.Printf("ZFS Version - Userland: %s, Kernel: %s", userland, kernel)
+		return fmt.Errorf("failed to get ZFS version: %w", err)
 	}
+	log.Printf("ZFS Version - Userland: %s, Kernel: %s", userland, kernel)
 
 	// Get pool health status first
 	poolStatus, err := o.manager.GetPoolStatus()
@@ -370,8 +369,12 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 			Frequency:      frequency,
 		}
 
-		if err := o.manager.CreateSnapshot(newSnapshot); err != nil {
-			return fmt.Errorf("failed to create snapshot: %w", err)
+		if o.config.DryRun {
+			log.Printf("[DRY-RUN] Would create snapshot %s", snapshotName)
+		} else {
+			if err := o.manager.CreateSnapshot(newSnapshot); err != nil {
+				return fmt.Errorf("failed to create snapshot: %w", err)
+			}
 		}
 	}
 
