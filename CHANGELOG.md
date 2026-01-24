@@ -1,3 +1,15 @@
+# [1.2.0](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.1.0...v1.2.0) (2026-01-24)
+
+
+### Bug Fixes
+
+* some fixes ([7478dd6](https://github.com/runningman84/zfs-snapshot-operator/commit/7478dd61ba312f0692e220c42ef88066362c8ddb))
+
+
+### Features
+
+* added a lot of safety features ([90bd766](https://github.com/runningman84/zfs-snapshot-operator/commit/90bd766d9591c19a107c01430b21f75d8c59ac03))
+
 # [1.1.0](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.0.0...v1.1.0) (2026-01-24)
 
 
