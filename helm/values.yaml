@@ -11,14 +11,13 @@ operator:
   chrootHostPath: /host
   # Path to ZFS binaries in chroot mode
   chrootBinPath: /usr/local/sbin
-
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
   repository: ghcr.io/runningman84/zfs-snapshot-operator
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "1.0.0"
+  tag: "1.1.0"
 # CronJob configuration
 cronjob:
   # Schedule in Cron format, see https://en.wikipedia.org/wiki/Cron

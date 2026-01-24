@@ -79,7 +79,7 @@ Since this operator accesses ZFS pools directly on the host via `hostPID` and `c
 ```bash
 # Example: Install for node 'nas-node-1'
 helm install zfs-snapshot-operator-nas-1 oci://ghcr.io/runningman84/charts/zfs-snapshot-operator \
-  --version 1.0.0 \
+  --version 1.1.0 \
   --namespace zfs-snapshot-operator \
   --create-namespace \
   --set nodeSelector.kubernetes\.io/hostname=nas-node-1 \
@@ -87,7 +87,7 @@ helm install zfs-snapshot-operator-nas-1 oci://ghcr.io/runningman84/charts/zfs-s
 
 # Example: Install for node 'nas-node-2'
 helm install zfs-snapshot-operator-nas-2 oci://ghcr.io/runningman84/charts/zfs-snapshot-operator \
-  --version 1.0.0 \
+  --version 1.1.0 \
   --namespace zfs-snapshot-operator \
   --create-namespace \
   --set nodeSelector.kubernetes\.io/hostname=nas-node-2 \
