@@ -3,13 +3,13 @@ package zfs
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os/exec"
 	"time"
 
 	"github.com/runningman84/zfs-snapshot-operator/pkg/config"
 	"github.com/runningman84/zfs-snapshot-operator/pkg/models"
 	"github.com/runningman84/zfs-snapshot-operator/pkg/parser"
+	"k8s.io/klog/v2"
 )
 
 // Manager handles ZFS operations
@@ -27,19 +27,19 @@ func NewManager(cfg *config.Config) *Manager {
 // logCommand logs the command being executed if debug mode is enabled
 func (m *Manager) logCommand(cmdArgs []string) {
 	if m.config.IsDebug() {
-		log.Printf("[DEBUG] Executing command: %v", cmdArgs)
+		klog.V(1).Infof(" Executing command: %v", cmdArgs)
 	}
 }
 
 // logCommandResult logs the command result if debug mode is enabled
 func (m *Manager) logCommandResult(exitCode int, stdout, stderr []byte) {
 	if m.config.IsDebug() {
-		log.Printf("[DEBUG] Exit code: %d", exitCode)
+		klog.V(1).Infof(" Exit code: %d", exitCode)
 		if len(stdout) > 0 {
-			log.Printf("[DEBUG] stdout: %s", string(stdout))
+			klog.V(1).Infof(" stdout: %s", string(stdout))
 		}
 		if len(stderr) > 0 {
-			log.Printf("[DEBUG] stderr: %s", string(stderr))
+			klog.V(1).Infof(" stderr: %s", string(stderr))
 		}
 	}
 }
@@ -135,7 +135,7 @@ func (m *Manager) GetSnapshots(poolName, filesystemName, frequency string) ([]*m
 
 // DeleteSnapshot deletes a ZFS snapshot
 func (m *Manager) DeleteSnapshot(snapshot *models.Snapshot) error {
-	log.Printf("Deleting snapshot %s", snapshot.SnapshotName)
+	klog.Infof("Deleting snapshot %s", snapshot.SnapshotName)
 
 	// FilesystemName already includes the pool name (e.g., "usbstorage/private")
 	snapshotPath := fmt.Sprintf("%s@%s", snapshot.FilesystemName, snapshot.SnapshotName)
@@ -167,7 +167,7 @@ func (m *Manager) DeleteSnapshot(snapshot *models.Snapshot) error {
 
 // CreateSnapshot creates a new ZFS snapshot
 func (m *Manager) CreateSnapshot(snapshot *models.Snapshot) error {
-	log.Printf("Creating snapshot %s", snapshot.SnapshotName)
+	klog.Infof("Creating snapshot %s", snapshot.SnapshotName)
 
 	// FilesystemName already includes the pool name (e.g., "usbstorage/private")
 	snapshotPath := fmt.Sprintf("%s@%s", snapshot.FilesystemName, snapshot.SnapshotName)
@@ -244,19 +244,19 @@ func (m *Manager) GetPoolStatus() (map[string]*models.PoolStatus, error) {
 func (m *Manager) IsPoolHealthy(poolName string, poolStatus map[string]*models.PoolStatus) bool {
 	status, exists := poolStatus[poolName]
 	if !exists {
-		log.Printf("Warning: No status found for pool %s", poolName)
+		klog.Infof("Warning: No status found for pool %s", poolName)
 		return false
 	}
 
 	// Pool should be ONLINE and have no errors
 	if status.State != "ONLINE" {
-		log.Printf("Pool %s is not ONLINE (state: %s)", poolName, status.State)
+		klog.Infof("Pool %s is not ONLINE (state: %s)", poolName, status.State)
 		return false
 	}
 
 	// Check error count (should be "0" for healthy pools)
 	if status.ErrorCount != "0" && status.ErrorCount != "" {
-		log.Printf("Pool %s has %s errors", poolName, status.ErrorCount)
+		klog.Infof("Pool %s has %s errors", poolName, status.ErrorCount)
 		return false
 	}
 
