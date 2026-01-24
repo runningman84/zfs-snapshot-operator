@@ -26,7 +26,7 @@ image:
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "1.1.0"
+  tag: "1.2.0"
 # CronJob configuration
 cronjob:
   # Schedule in Cron format, see https://en.wikipedia.org/wiki/Cron
