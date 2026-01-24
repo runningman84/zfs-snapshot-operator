@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.0...v1.2.1) (2026-01-24)
+
+
+### Bug Fixes
+
+* improved logging ([cb2c0d6](https://github.com/runningman84/zfs-snapshot-operator/commit/cb2c0d6108c83f3c6e752ad7c3da875aab1c4df6))
+
 # [1.2.0](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.1.0...v1.2.0) (2026-01-24)
 
 
