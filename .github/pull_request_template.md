@@ -23,32 +23,33 @@ Closes #
 
 ## Testing
 <!-- Describe the tests you ran to verify your changes -->
-- [ ] All existing tests pass
+- [ ] All existing tests pass (`go test ./pkg/...`)
 - [ ] Added new tests for new functionality
-- [ ] Manually tested in a Kubernetes cluster
-- [ ] Tested with backend: <!-- e.g., MinIO, VersityGW, Garage -->
+- [ ] Tested in test mode (`./operator -mode test`)
+- [ ] Manually tested with real ZFS pools (if applicable)
+- [ ] Tested in Kubernetes/Talos cluster (if applicable)
 
-## Backend Compatibility
-<!-- Mark all backends that this change has been tested with -->
-- [ ] VersityGW
-- [ ] MinIO
-- [ ] Garage
-- [ ] AWS S3
-- [ ] N/A (not backend-specific)
+## Operation Mode Testing
+<!-- Mark all modes that this change has been tested with (if applicable) -->
+- [ ] Test mode (using test data files)
+- [ ] Direct mode (direct ZFS commands)
+- [ ] Chroot mode (containerized with hostPID)
+- [ ] N/A (not mode-specific)
 
 ## Checklist
 <!-- Verify all items before submitting -->
-- [ ] My code follows the project's style guidelines
+- [ ] My code follows the project's style guidelines (`go fmt ./...`)
 - [ ] I have performed a self-review of my code
 - [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings or errors
+- [ ] I have made corresponding changes to the documentation (README.md)
+- [ ] My changes generate no new warnings or errors (`go vet ./...`)
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] New and existing unit tests pass locally with my changes
+- [ ] Test coverage has not significantly decreased
 - [ ] Any dependent changes have been merged and published
 
-## Screenshots (if applicable)
-<!-- Add screenshots to help explain your changes -->
+## Screenshots/Logs (if applicable)
+<!-- Add screenshots or log outputs to help explain your changes -->
 
 ## Additional Context
 <!-- Add any other context about the pull request here -->
