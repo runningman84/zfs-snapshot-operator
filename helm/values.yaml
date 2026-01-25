@@ -69,6 +69,9 @@ filesystems:
   whitelist: ""
   # Example: "data,media" to only manage data and media filesystems
   # Example: "" to manage all filesystems (default)
+# Snapshot naming
+# Prefix for automatic snapshots (default: autosnap)
+snapshotPrefix: "autosnap"
 # Pool health monitoring
 monitoring:
   # Number of days before warning about old scrubs (default: 90)

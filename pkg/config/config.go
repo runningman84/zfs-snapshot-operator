@@ -29,6 +29,9 @@ type Config struct {
 	// Filesystem filtering
 	FilesystemWhitelist []string // List of filesystems to process (empty = all filesystems)
 
+	// Snapshot naming
+	SnapshotPrefix string // Prefix for automatic snapshots (default: autosnap)
+
 	// Scrub monitoring
 	ScrubAgeThresholdDays int // Number of days before warning about old scrubs
 
@@ -62,6 +65,7 @@ func NewConfig(mode string) *Config {
 		MaxYearlySnapshots:    getEnvAsInt("MAX_YEARLY_SNAPSHOTS", 3),
 		PoolWhitelist:         getEnvAsStringSlice("POOL_WHITELIST", []string{}),
 		FilesystemWhitelist:   getEnvAsStringSlice("FILESYSTEM_WHITELIST", []string{}),
+		SnapshotPrefix:        getEnvAsString("SNAPSHOT_PREFIX", "autosnap"),
 		ScrubAgeThresholdDays: getEnvAsInt("SCRUB_AGE_THRESHOLD_DAYS", 90),
 		ChrootHostPath:        getEnvAsString("CHROOT_HOST_PATH", "/host"),
 		ChrootBinPath:         getEnvAsString("CHROOT_BIN_PATH", "/usr/local/sbin"),
@@ -101,6 +105,24 @@ func NewConfig(mode string) *Config {
 	}
 
 	return cfg
+}
+
+// GetMaxSnapshotsForFrequency returns the maximum number of snapshots to keep for a given frequency
+func (c *Config) GetMaxSnapshotsForFrequency(frequency string) int {
+	switch frequency {
+	case "hourly":
+		return c.MaxHourlySnapshots
+	case "daily":
+		return c.MaxDailySnapshots
+	case "weekly":
+		return c.MaxWeeklySnapshots
+	case "monthly":
+		return c.MaxMonthlySnapshots
+	case "yearly":
+		return c.MaxYearlySnapshots
+	default:
+		return 0
+	}
 }
 
 // GetMaxSnapshotDate returns the maximum date for a given frequency
