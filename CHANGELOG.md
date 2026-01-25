@@ -1,3 +1,12 @@
+## [1.2.3](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.2...v1.2.3) (2026-01-25)
+
+
+### Bug Fixes
+
+* improve safety check ([d57a289](https://github.com/runningman84/zfs-snapshot-operator/commit/d57a289b5dc7368682255b553c3edfdc0fb404ca))
+* improve safety logic ([809910a](https://github.com/runningman84/zfs-snapshot-operator/commit/809910a354c2daac6640a095212a90fb3ff2ac87))
+* make locking optional ([6bc1ce8](https://github.com/runningman84/zfs-snapshot-operator/commit/6bc1ce82f7b57199df09d9b0865ba1d7a0d1e5ca))
+
 ## [1.2.2](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.1...v1.2.2) (2026-01-25)
 
 
