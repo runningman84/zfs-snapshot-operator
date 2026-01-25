@@ -327,11 +327,23 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 		}
 	}
 
-	// Safety check: Never delete all snapshots - always keep at least 1
-	if len(snapshotsToKeep) == 0 && len(snapshotsToDelete) > 0 {
-		klog.Warningf(" Refusing to delete all %d snapshots for %s - keeping newest snapshot as safety measure",
-			len(snapshotsToDelete), frequency)
-		// Keep the newest snapshot
+	// Check if we need to create a new snapshot
+	var snapshotRecent *models.Snapshot
+	for _, snapshot := range snapshots {
+		if o.manager.IsSnapshotRecent(snapshot, frequency, now) {
+			if snapshotRecent == nil || snapshotRecent.DateTime.Before(snapshot.DateTime) {
+				snapshotRecent = snapshot
+			}
+		}
+	}
+
+	willCreateNewSnapshot := snapshotRecent == nil
+
+	// Safety check: Only keep a snapshot if we're creating a new one
+	// This prevents perpetually keeping old snapshots outside the retention window
+	if len(snapshotsToKeep) == 0 && len(snapshotsToDelete) > 0 && willCreateNewSnapshot {
+		klog.Warningf(" No snapshots in retention window, but creating new snapshot - keeping newest as safety measure")
+		// Keep the newest snapshot temporarily until the new one is created
 		if len(snapshotsToDelete) > 0 {
 			newest := snapshotsToDelete[0]
 			for _, s := range snapshotsToDelete {
@@ -376,16 +388,7 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 		klog.Infof("Keeping snapshot %s", snapshot.SnapshotName)
 	}
 
-	// Find recent snapshot
-	var snapshotRecent *models.Snapshot
-	for _, snapshot := range snapshots {
-		if o.manager.IsSnapshotRecent(snapshot, frequency, now) {
-			if snapshotRecent == nil || snapshotRecent.DateTime.Before(snapshot.DateTime) {
-				snapshotRecent = snapshot
-			}
-		}
-	}
-
+	// Create new snapshot if needed
 	if snapshotRecent != nil {
 		klog.Infof("Found recent snapshot %s", snapshotRecent.SnapshotName)
 	} else {
