@@ -116,7 +116,7 @@ func (m *Manager) GetSnapshots(poolName, filesystemName, frequency string) ([]*m
 	}
 	m.logCommandResult(0, output, nil)
 
-	allSnapshots, err := parser.ParseSnapshotsJSON(output)
+	allSnapshots, err := parser.ParseSnapshotsJSON(output, m.config.SnapshotPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse snapshots JSON: %w", err)
 	}

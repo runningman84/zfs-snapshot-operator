@@ -36,7 +36,7 @@ type ZFSDatasetResponse struct {
 }
 
 // ParseSnapshotsJSON parses zfs list snapshots JSON output
-func ParseSnapshotsJSON(data []byte) ([]*models.Snapshot, error) {
+func ParseSnapshotsJSON(data []byte, snapshotPrefix string) ([]*models.Snapshot, error) {
 	var response ZFSDatasetResponse
 
 	if err := json.Unmarshal(data, &response); err != nil {

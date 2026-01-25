@@ -36,7 +36,7 @@ func TestParseSnapshotsJSON(t *testing.T) {
   }
 }`
 
-	snapshots, err := ParseSnapshotsJSON([]byte(jsonData))
+	snapshots, err := ParseSnapshotsJSON([]byte(jsonData), "autosnap")
 	if err != nil {
 		t.Fatalf("ParseSnapshotsJSON() error = %v", err)
 	}
@@ -99,7 +99,7 @@ func TestParseSnapshotsJSON(t *testing.T) {
 func TestParseSnapshotsJSON_InvalidJSON(t *testing.T) {
 	jsonData := `invalid json`
 
-	_, err := ParseSnapshotsJSON([]byte(jsonData))
+	_, err := ParseSnapshotsJSON([]byte(jsonData), "autosnap")
 	if err == nil {
 		t.Error("ParseSnapshotsJSON() expected error for invalid JSON, got nil")
 	}

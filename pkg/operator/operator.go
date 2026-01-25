@@ -3,6 +3,7 @@ package operator
 import (
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/runningman84/zfs-snapshot-operator/pkg/config"
@@ -133,6 +134,7 @@ func (o *Operator) logConfig(now time.Time) {
 	} else {
 		klog.Infof("Filesystem whitelist: all filesystems")
 	}
+	klog.Infof("Snapshot prefix: %s", o.config.SnapshotPrefix)
 	klog.Infof("Max hourly snapshot age: %s", o.config.GetMaxSnapshotDate("hourly", now).Format("2006-01-02 15:04:05"))
 	klog.Infof("Max daily snapshot age: %s", o.config.GetMaxSnapshotDate("daily", now).Format("2006-01-02 15:04:05"))
 	klog.Infof("Max weekly snapshot age: %s", o.config.GetMaxSnapshotDate("weekly", now).Format("2006-01-02 15:04:05"))
@@ -283,15 +285,45 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 		return fmt.Errorf("failed to get snapshots: %w", err)
 	}
 
-	// Count how many snapshots will remain after deletion
+	// Get retention configuration for this frequency
+	maxCount := o.config.GetMaxSnapshotsForFrequency(frequency)
+	retentionCutoff := o.config.GetMaxSnapshotDate(frequency, now)
+
+	klog.V(1).Infof(" Found %d %s snapshot(s), retention window: %d periods, cutoff: %s",
+		len(snapshots), frequency, maxCount, retentionCutoff.Format("2006-01-02 15:04:05"))
+
+	// Sort snapshots by date (newest first)
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].DateTime.After(snapshots[j].DateTime)
+	})
+
+	// Group snapshots by time period and keep only the newest in each period
+	periodMap := make(map[string]*models.Snapshot)
+	for _, snapshot := range snapshots {
+		periodKey := o.getTimePeriodKey(snapshot.DateTime, frequency)
+		// Keep the newest snapshot in each period (since we're iterating newest-first)
+		if _, exists := periodMap[periodKey]; !exists {
+			periodMap[periodKey] = snapshot
+		}
+	}
+
+	// Determine which snapshots to keep and which to delete
 	var snapshotsToDelete []*models.Snapshot
 	var snapshotsToKeep []*models.Snapshot
 
 	for _, snapshot := range snapshots {
-		if o.manager.CanSnapshotBeDeleted(snapshot, frequency, now) {
-			snapshotsToDelete = append(snapshotsToDelete, snapshot)
-		} else {
+		periodKey := o.getTimePeriodKey(snapshot.DateTime, frequency)
+
+		// Check if this snapshot is the keeper for its period
+		isKeeperForPeriod := periodMap[periodKey] == snapshot
+
+		// Check if snapshot is within retention window
+		isWithinRetention := snapshot.DateTime.After(retentionCutoff) || snapshot.DateTime.Equal(retentionCutoff)
+
+		if isKeeperForPeriod && isWithinRetention {
 			snapshotsToKeep = append(snapshotsToKeep, snapshot)
+		} else {
+			snapshotsToDelete = append(snapshotsToDelete, snapshot)
 		}
 	}
 
@@ -360,7 +392,7 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 		klog.Infof("Did not find any recent snapshot for frequency %s", frequency)
 
 		formattedTime := now.Format("2006-01-02_15:04:05")
-		snapshotName := fmt.Sprintf("autosnap_%s_%s", formattedTime, frequency)
+		snapshotName := fmt.Sprintf("%s_%s_%s", o.config.SnapshotPrefix, formattedTime, frequency)
 
 		newSnapshot := &models.Snapshot{
 			PoolName:       pool.PoolName,
@@ -383,6 +415,30 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 	}
 
 	return nil
+}
+
+// getTimePeriodKey returns a unique key for the time period based on frequency
+func (o *Operator) getTimePeriodKey(t time.Time, frequency string) string {
+	switch frequency {
+	case "hourly":
+		// Group by hour: "2026-01-25 14"
+		return t.Format("2006-01-02 15")
+	case "daily":
+		// Group by day: "2026-01-25"
+		return t.Format("2006-01-02")
+	case "weekly":
+		// Group by ISO week: "2026-W04"
+		year, week := t.ISOWeek()
+		return fmt.Sprintf("%d-W%02d", year, week)
+	case "monthly":
+		// Group by month: "2026-01"
+		return t.Format("2006-01")
+	case "yearly":
+		// Group by year: "2026"
+		return t.Format("2006")
+	default:
+		return t.Format("2006-01-02 15:04:05")
+	}
 }
 
 func (o *Operator) logSnapshotSummary(pool *models.Pool) {

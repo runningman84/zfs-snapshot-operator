@@ -68,6 +68,8 @@ spec:
               - name: FILESYSTEM_WHITELIST
                 value: {{ .Values.filesystems.whitelist | quote }}
               {{- end }}
+              - name: SNAPSHOT_PREFIX
+                value: {{ .Values.snapshotPrefix | quote }}
               - name: SCRUB_AGE_THRESHOLD_DAYS
                 value: {{ .Values.monitoring.scrubAgeThresholdDays | quote }}
               {{- if eq .Values.operator.mode "chroot" }}

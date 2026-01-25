@@ -27,12 +27,16 @@ A Kubernetes operator for automated ZFS snapshot management with configurable re
 
 ## Architecture
 
-The operator runs as a Kubernetes CronJob that:
+The operator is designed to run as a Kubernetes CronJob **every hour** (recommended schedule: `0 * * * *`).
+
+Each run performs the following operations:
 1. Lists all ZFS pools and snapshots on the host
 2. Filters pools based on whitelist configuration (if specified)
 3. Checks pool health status and scrub age
 4. Creates new snapshots with timestamp-based naming
 5. Cleans up old snapshots according to retention policies
+
+**Important:** The operator is stateless and resilient to scheduling gaps. If it hasn't run for some time (e.g., due to cluster downtime or maintenance), it will still work correctly when it resumes. The time-window retention logic ensures proper snapshot coverage based on actual snapshot ages, not execution frequency.
 
 ## Prerequisites
 
@@ -133,6 +137,7 @@ The operator is configured through environment variables, which can be set in th
 | `MAX_YEARLY_SNAPSHOTS` | Maximum number of yearly snapshots to retain | `3` |
 | `POOL_WHITELIST` | Comma-separated list of pools to manage (empty = all pools) | `""` |
 | `FILESYSTEM_WHITELIST` | Comma-separated list of filesystems to manage (empty = all filesystems) | `""` |
+| `SNAPSHOT_PREFIX` | Prefix for automatic snapshot names | `autosnap` |
 | `SCRUB_AGE_THRESHOLD_DAYS` | Number of days before warning about old scrubs | `90` |
 | `CHROOT_HOST_PATH` | Host root path for chroot mode | `/host` |
 | `CHROOT_BIN_PATH` | Path to ZFS binaries in chroot mode | `/usr/local/sbin` |
@@ -169,6 +174,11 @@ monitoring:
 ```yaml
 pools:
   whitelist: "tank,backup"
+```
+
+**Custom snapshot prefix:**
+```yaml
+snapshotPrefix: "zfs-auto"  # Snapshots will be named: zfs-auto_2026-01-25_14:00:00_hourly
 ```
 
 **Aggressive retention (more snapshots):**
@@ -231,12 +241,14 @@ operator:
 
 Snapshots are created with the following naming pattern:
 ```
-autosnap_YYYY-MM-DD_HH:MM:SS_<frequency>
+<prefix>_YYYY-MM-DD_HH:MM:SS_<frequency>
 ```
 
-Examples:
-- `autosnap_2026-01-24_14:00:00_hourly`
-- `autosnap_2026-01-24_00:00:00_daily`
+The default prefix is `autosnap` but can be customized via the `SNAPSHOT_PREFIX` environment variable.
+
+Examples (with default prefix):
+- `autosnap_2026-01-25_14:00:00_hourly`
+- `autosnap_2026-01-25_00:00:00_daily`
 - `autosnap_2026-01-20_00:00:00_weekly` (Mondays)
 - `autosnap_2026-01-01_00:00:00_monthly` (1st of month)
 - `autosnap_2026-01-01_00:00:00_yearly` (Jan 1st)
@@ -400,10 +412,20 @@ In test mode, the operator uses test data files from the `test/` directory inste
 
 ### Retention Logic
 
-The operator maintains rolling windows of snapshots:
-- Keeps the newest N snapshots for each frequency
-- Deletes snapshots beyond the retention limit
-- Preserves manual snapshots (not matching the `autosnap_*` pattern)
+The operator uses **time-window retention with deduplication**:
+- Divides time into periods based on frequency (hours, days, weeks, months, years)
+- Keeps the **newest snapshot** from each period within the retention window
+- Automatically deletes snapshots outside the retention window or duplicates within a period
+- Preserves manual snapshots (not matching the configured prefix pattern)
+
+**Scheduling:** While the operator should run hourly for optimal coverage, it will function correctly even if it hasn't run for days or weeks. The retention logic is based on snapshot ages, not run frequency.
+
+**Examples:**
+- `maxYearly: 3` → Keeps the newest yearly snapshot from each of the last 3 years, deletes older
+- `maxMonthly: 12` → Keeps the newest monthly snapshot from each of the last 12 months
+- `maxDaily: 7` → Keeps the newest daily snapshot from each of the last 7 days
+
+**Deduplication:** If multiple yearly snapshots exist in the same year (e.g., from manual creation or bugs), only the newest one is kept. This ensures you have temporal coverage rather than just the N most recent snapshots.
 
 ### Age Calculation
 
