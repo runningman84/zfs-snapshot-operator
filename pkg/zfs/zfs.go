@@ -121,9 +121,18 @@ func (m *Manager) GetSnapshots(poolName, filesystemName, frequency string) ([]*m
 		return nil, fmt.Errorf("failed to parse snapshots JSON: %w", err)
 	}
 
-	// Filter snapshots if frequency is specified
+	// Filter snapshots by pool, filesystem, and frequency
 	var snapshots []*models.Snapshot
 	for _, snapshot := range allSnapshots {
+		// Filter by pool name if specified
+		if poolName != "" && snapshot.PoolName != poolName {
+			continue
+		}
+		// Filter by filesystem name if specified
+		if filesystemName != "" && snapshot.FilesystemName != filesystemName {
+			continue
+		}
+		// Filter by frequency if specified
 		if frequency != "" && snapshot.Frequency != frequency {
 			continue
 		}

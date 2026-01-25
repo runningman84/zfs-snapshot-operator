@@ -18,11 +18,12 @@ type Config struct {
 	EnableLocking      bool   // If true, use lock file to prevent concurrent runs (default: true)
 	LockFilePath       string // Path to lock file for preventing concurrent runs
 
-	MaxHourlySnapshots  int
-	MaxDailySnapshots   int
-	MaxWeeklySnapshots  int
-	MaxMonthlySnapshots int
-	MaxYearlySnapshots  int
+	MaxFrequentlySnapshots int
+	MaxHourlySnapshots     int
+	MaxDailySnapshots      int
+	MaxWeeklySnapshots     int
+	MaxMonthlySnapshots    int
+	MaxYearlySnapshots     int
 
 	// Pool filtering
 	PoolWhitelist []string // List of pools to process (empty = all pools)
@@ -54,23 +55,24 @@ type Config struct {
 // mode can be: "test" (use test files), "direct" (no chroot), "chroot" (production with chroot)
 func NewConfig(mode string) *Config {
 	cfg := &Config{
-		Mode:                  mode,
-		LogLevel:              getEnvAsString("LOG_LEVEL", "info"),
-		DryRun:                getEnvAsBool("DRY_RUN", false),
-		MaxDeletionsPerRun:    getEnvAsInt("MAX_DELETIONS_PER_RUN", 100),
-		EnableLocking:         getEnvAsBool("ENABLE_LOCKING", true),
-		LockFilePath:          getEnvAsString("LOCK_FILE_PATH", "/tmp/zfs-snapshot-operator.lock"),
-		MaxHourlySnapshots:    getEnvAsInt("MAX_HOURLY_SNAPSHOTS", 24),
-		MaxDailySnapshots:     getEnvAsInt("MAX_DAILY_SNAPSHOTS", 7),
-		MaxWeeklySnapshots:    getEnvAsInt("MAX_WEEKLY_SNAPSHOTS", 4),
-		MaxMonthlySnapshots:   getEnvAsInt("MAX_MONTHLY_SNAPSHOTS", 12),
-		MaxYearlySnapshots:    getEnvAsInt("MAX_YEARLY_SNAPSHOTS", 3),
-		PoolWhitelist:         getEnvAsStringSlice("POOL_WHITELIST", []string{}),
-		FilesystemWhitelist:   getEnvAsStringSlice("FILESYSTEM_WHITELIST", []string{}),
-		SnapshotPrefix:        getEnvAsString("SNAPSHOT_PREFIX", "autosnap"),
-		ScrubAgeThresholdDays: getEnvAsInt("SCRUB_AGE_THRESHOLD_DAYS", 90),
-		ChrootHostPath:        getEnvAsString("CHROOT_HOST_PATH", "/host"),
-		ChrootBinPath:         getEnvAsString("CHROOT_BIN_PATH", "/usr/local/sbin"),
+		Mode:                   mode,
+		LogLevel:               getEnvAsString("LOG_LEVEL", "info"),
+		DryRun:                 getEnvAsBool("DRY_RUN", false),
+		MaxDeletionsPerRun:     getEnvAsInt("MAX_DELETIONS_PER_RUN", 100),
+		EnableLocking:          getEnvAsBool("ENABLE_LOCKING", true),
+		LockFilePath:           getEnvAsString("LOCK_FILE_PATH", "/tmp/zfs-snapshot-operator.lock"),
+		MaxFrequentlySnapshots: getEnvAsInt("MAX_FREQUENTLY_SNAPSHOTS", 0),
+		MaxHourlySnapshots:     getEnvAsInt("MAX_HOURLY_SNAPSHOTS", 24),
+		MaxDailySnapshots:      getEnvAsInt("MAX_DAILY_SNAPSHOTS", 7),
+		MaxWeeklySnapshots:     getEnvAsInt("MAX_WEEKLY_SNAPSHOTS", 4),
+		MaxMonthlySnapshots:    getEnvAsInt("MAX_MONTHLY_SNAPSHOTS", 12),
+		MaxYearlySnapshots:     getEnvAsInt("MAX_YEARLY_SNAPSHOTS", 3),
+		PoolWhitelist:          getEnvAsStringSlice("POOL_WHITELIST", []string{}),
+		FilesystemWhitelist:    getEnvAsStringSlice("FILESYSTEM_WHITELIST", []string{}),
+		SnapshotPrefix:         getEnvAsString("SNAPSHOT_PREFIX", "autosnap"),
+		ScrubAgeThresholdDays:  getEnvAsInt("SCRUB_AGE_THRESHOLD_DAYS", 90),
+		ChrootHostPath:         getEnvAsString("CHROOT_HOST_PATH", "/host"),
+		ChrootBinPath:          getEnvAsString("CHROOT_BIN_PATH", "/usr/local/sbin"),
 	}
 
 	switch mode {
@@ -112,6 +114,8 @@ func NewConfig(mode string) *Config {
 // GetMaxSnapshotsForFrequency returns the maximum number of snapshots to keep for a given frequency
 func (c *Config) GetMaxSnapshotsForFrequency(frequency string) int {
 	switch frequency {
+	case "frequently":
+		return c.MaxFrequentlySnapshots
 	case "hourly":
 		return c.MaxHourlySnapshots
 	case "daily":
@@ -130,6 +134,8 @@ func (c *Config) GetMaxSnapshotsForFrequency(frequency string) int {
 // GetMaxSnapshotDate returns the maximum date for a given frequency
 func (c *Config) GetMaxSnapshotDate(frequency string, now time.Time) time.Time {
 	switch frequency {
+	case "frequently":
+		return now.Add(-time.Duration(c.MaxFrequentlySnapshots) * 15 * time.Minute)
 	case "hourly":
 		return now.Add(-time.Duration(c.MaxHourlySnapshots) * time.Hour)
 	case "daily":
@@ -148,6 +154,8 @@ func (c *Config) GetMaxSnapshotDate(frequency string, now time.Time) time.Time {
 // GetMinSnapshotDate returns the minimum date for a given frequency
 func (c *Config) GetMinSnapshotDate(frequency string, now time.Time) time.Time {
 	switch frequency {
+	case "frequently":
+		return now.Add(-15 * time.Minute)
 	case "hourly":
 		return now.Add(-1 * time.Hour)
 	case "daily":
@@ -165,7 +173,7 @@ func (c *Config) GetMinSnapshotDate(frequency string, now time.Time) time.Time {
 
 // Frequencies returns the list of supported snapshot frequencies
 func Frequencies() []string {
-	return []string{"hourly", "daily", "weekly", "monthly", "yearly"}
+	return []string{"frequently", "hourly", "daily", "weekly", "monthly", "yearly"}
 }
 
 // getEnvAsInt reads an environment variable and returns it as an integer,

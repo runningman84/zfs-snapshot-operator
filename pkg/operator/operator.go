@@ -282,13 +282,38 @@ func (o *Operator) checkScrubAge(poolName string, poolStatus map[string]*models.
 func (o *Operator) processFrequency(pool *models.Pool, frequency string, now time.Time) error {
 	klog.Infof("Processing frequency %s", frequency)
 
+	// Get retention configuration for this frequency
+	maxCount := o.config.GetMaxSnapshotsForFrequency(frequency)
+
+	// If maxCount is 0, skip this frequency entirely (no snapshots created or kept)
+	if maxCount == 0 {
+		klog.V(1).Infof("Skipping frequency %s (max count is 0)", frequency)
+
+		// Still delete any existing snapshots for this frequency to clean up
+		snapshots, err := o.manager.GetSnapshots(pool.PoolName, pool.FilesystemName, frequency)
+		if err != nil {
+			return fmt.Errorf("failed to get snapshots: %w", err)
+		}
+
+		for _, snapshot := range snapshots {
+			if o.config.DryRun {
+				klog.Infof("[DRY-RUN] Would delete snapshot %s (frequency disabled)", snapshot.SnapshotName)
+			} else {
+				if err := o.manager.DeleteSnapshot(snapshot); err != nil {
+					klog.Infof("Failed to delete snapshot %s: %v", snapshot.SnapshotName, err)
+				} else {
+					o.deletionCount++
+				}
+			}
+		}
+		return nil
+	}
+
 	snapshots, err := o.manager.GetSnapshots(pool.PoolName, pool.FilesystemName, frequency)
 	if err != nil {
 		return fmt.Errorf("failed to get snapshots: %w", err)
 	}
 
-	// Get retention configuration for this frequency
-	maxCount := o.config.GetMaxSnapshotsForFrequency(frequency)
 	retentionCutoff := o.config.GetMaxSnapshotDate(frequency, now)
 
 	klog.V(1).Infof(" Found %d %s snapshot(s), retention window: %d periods, cutoff: %s",
@@ -403,6 +428,12 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 // getTimePeriodKey returns a unique key for the time period based on frequency
 func (o *Operator) getTimePeriodKey(t time.Time, frequency string) string {
 	switch frequency {
+	case "frequently":
+		// Group by 15-minute intervals: "2026-01-25 14:00" (rounds down to nearest 15 min)
+		year, month, day := t.Date()
+		hour := t.Hour()
+		minute := (t.Minute() / 15) * 15
+		return fmt.Sprintf("%d-%02d-%02d %02d:%02d", year, month, day, hour, minute)
 	case "hourly":
 		// Group by hour: "2026-01-25 14"
 		return t.Format("2006-01-02 15")

@@ -52,6 +52,8 @@ spec:
                 value: {{ .Values.operator.enableLocking | quote }}
               - name: LOCK_FILE_PATH
                 value: {{ .Values.operator.lockFilePath | quote }}
+              - name: MAX_FREQUENTLY_SNAPSHOTS
+                value: {{ .Values.snapshots.maxFrequently | quote }}
               - name: MAX_HOURLY_SNAPSHOTS
                 value: {{ .Values.snapshots.maxHourly | quote }}
               - name: MAX_DAILY_SNAPSHOTS
