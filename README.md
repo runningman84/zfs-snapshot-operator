@@ -1,5 +1,9 @@
 # ZFS Snapshot Operator
 
+[![Test](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml)
+[![Release](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/release.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/release.yml)
+[![Build and Publish](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/publish.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/publish.yml)
+
 A Kubernetes operator for automated ZFS snapshot management with configurable retention policies and pool health monitoring.
 
 > **Note**: This operator is designed for Talos-based NAS systems and requires deployment as a separate Helm release for each node with ZFS pools.
@@ -43,9 +47,16 @@ Each run performs the following operations:
 
 ## Prerequisites
 
+### For Kubernetes/Talos Deployment
+
 - Kubernetes cluster with host access (hostPID required)
 - ZFS installed on the host nodes
-- Host root filesystem mounted in the container
+- Host root filesystem mounted in the container (in case of Talos)
+
+### For Standalone Binary
+
+- Any Linux system with ZFS installed
+- Run in direct mode (default): `./operator -mode direct`
 
 ## Installation
 
@@ -78,6 +89,18 @@ helm install zfs-snapshot-operator ./helm
 # Install with custom values
 helm install zfs-snapshot-operator ./helm -f custom-values.yaml
 ```
+
+### Using Flux
+
+Example Flux configuration files are available in the [flux/](flux/) directory:
+
+```bash
+# Apply the OCIRepository and HelmRelease
+kubectl apply -f flux/chart.yaml
+kubectl apply -f flux/release.yaml
+```
+
+See [flux/chart.yaml](flux/chart.yaml) and [flux/release.yaml](flux/release.yaml) for complete examples.
 
 ### Manual Installation
 
@@ -361,21 +384,15 @@ go test ./pkg/... -cover
 
 ### Test Coverage
 
-Current test coverage:
-- `pkg/config`: 98.8%
+[![Test](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml)
+
+Current test coverage (from latest test run):
+- `pkg/config`: 91.2%
 - `pkg/parser`: 80.3%
-- `pkg/zfs`: 49.6%
-- `pkg/operator`: 10.7%
+- `pkg/zfs`: 83.5%
+- `pkg/operator`: 36.0%
 
-### Running in Test Mode
-
-For development and testing, run the operator in test mode:
-
-```bash
-./operator -mode test
-```
-
-In test mode, the operator uses test data files from the `test/` directory instead of executing actual ZFS commands.
+Coverage reports are available as artifacts in the [test workflow runs](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml).
 
 ### Project Structure
 
@@ -527,7 +544,7 @@ Developed by [runningman84](https://github.com/runningman84)
 
 ### Acknowledgments
 
-- Snapshot naming convention inspired by [zfs-auto-snapshot](https://github.com/zfsonlinux/zfs-auto-snapshot)
+- Snapshot naming convention and concept inspired by [zfs-auto-snapshot](https://github.com/zfsonlinux/zfs-auto-snapshot)
 
 ## Support
 
