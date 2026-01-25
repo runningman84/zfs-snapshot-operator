@@ -2,7 +2,6 @@
 
 [![Test](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml)
 [![Release](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/release.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/release.yml)
-[![Build and Publish](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/publish.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/publish.yml)
 
 A Kubernetes operator for automated ZFS snapshot management with configurable retention policies and pool health monitoring.
 
