@@ -16,9 +16,10 @@ A Kubernetes operator for automated ZFS snapshot management with configurable re
   - Logs pool errors (read, write, checksum errors)
   - Logs filesystem usage statistics
 - **Safety Features**:
+  - **Create-first approach**: New snapshots are created before any deletions to prevent loss of backup protection
+  - **Fail-safe behavior**: If snapshot creation fails (disk errors, filesystem full, etc.), no deletions occur
   - **Dry-run mode**: Preview snapshot operations (create/delete) without actually executing them
   - **Deletion limits**: Maximum number of snapshots to delete per run
-  - **Minimum retention**: Never deletes all snapshots - always keeps at least 1
   - **Concurrent run protection**: Lock file prevents multiple instances running simultaneously
   - **Error exit codes**: Exits with code 1 if any pool is unhealthy or commands fail
 - **Kubernetes Native**: Runs as a CronJob with configurable scheduling
@@ -33,10 +34,12 @@ Each run performs the following operations:
 1. Lists all ZFS pools and snapshots on the host
 2. Filters pools based on whitelist configuration (if specified)
 3. Checks pool health status and scrub age
-4. Creates new snapshots with timestamp-based naming
+4. **Creates new snapshots first** (if needed) - this happens before any deletions
 5. Cleans up old snapshots according to retention policies
 
 **Important:** The operator is stateless and resilient to scheduling gaps. If it hasn't run for some time (e.g., due to cluster downtime or maintenance), it will still work correctly when it resumes. The time-window retention logic ensures proper snapshot coverage based on actual snapshot ages, not execution frequency.
+
+**Safety-First Design:** New snapshots are always created before any old snapshots are deleted. If snapshot creation fails (e.g., due to disk issues or filesystem errors), the operator aborts the run without deleting any existing snapshots, ensuring your backup protection is never reduced.
 
 ## Prerequisites
 
@@ -417,6 +420,13 @@ The operator uses **time-window retention with deduplication**:
 - Keeps the **newest snapshot** from each period within the retention window
 - Automatically deletes snapshots outside the retention window or duplicates within a period
 - Preserves manual snapshots (not matching the configured prefix pattern)
+
+**Safety-First Execution Order:**
+1. **Create** new snapshots first (if needed)
+2. If creation succeeds, **delete** old snapshots
+3. If creation fails, abort without deleting anything
+
+This ensures your backup protection never decreases. If ZFS has issues (disk errors, filesystem full, etc.), the operator fails early and preserves existing snapshots.
 
 **Scheduling:** While the operator should run hourly for optimal coverage, it will function correctly even if it hasn't run for days or weeks. The retention logic is based on snapshot ages, not run frequency.
 
