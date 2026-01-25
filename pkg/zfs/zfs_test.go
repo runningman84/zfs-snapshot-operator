@@ -1,7 +1,10 @@
 package zfs
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -582,5 +585,131 @@ func TestSnapshotDeletionSafetyAllFrequencies(t *testing.T) {
 				t.Errorf("Current %s snapshot not marked as recent", freq)
 			}
 		})
+	}
+}
+
+func TestGetVersion(t *testing.T) {
+	// Change to project root so test data paths work
+	if err := changeToProjectRoot(); err != nil {
+		t.Skipf("Could not change to project root: %v", err)
+	}
+
+	cfg := config.NewConfig("test")
+	manager := NewManager(cfg)
+
+	userland, kernel, err := manager.GetVersion()
+	if err != nil {
+		t.Fatalf("GetVersion() failed: %v", err)
+	}
+
+	expectedUserland := "zfs-2.3.3-1"
+	expectedKernel := "zfs-kmod-2.3.3-1"
+
+	if userland != expectedUserland {
+		t.Errorf("GetVersion() userland = %q, want %q", userland, expectedUserland)
+	}
+
+	if kernel != expectedKernel {
+		t.Errorf("GetVersion() kernel = %q, want %q", kernel, expectedKernel)
+	}
+}
+
+func TestCreateSnapshot(t *testing.T) {
+	cfg := config.NewConfig("test")
+	manager := NewManager(cfg)
+
+	snapshot := &models.Snapshot{
+		PoolName:       "tank",
+		FilesystemName: "tank/data",
+		SnapshotName:   "autosnap_2026-01-25_15:00:00_hourly",
+		Frequency:      "hourly",
+	}
+
+	// In test mode, CreateSnapshot uses "true" command which always succeeds
+	err := manager.CreateSnapshot(snapshot)
+	if err != nil {
+		t.Errorf("CreateSnapshot() failed: %v", err)
+	}
+}
+
+func TestDeleteSnapshot(t *testing.T) {
+	cfg := config.NewConfig("test")
+	manager := NewManager(cfg)
+
+	snapshot := &models.Snapshot{
+		PoolName:       "tank",
+		FilesystemName: "tank/data",
+		SnapshotName:   "autosnap_2020-01-01_00:00:00_yearly",
+		Frequency:      "yearly",
+	}
+
+	// In test mode, DeleteSnapshot uses "true" command which always succeeds
+	err := manager.DeleteSnapshot(snapshot)
+	if err != nil {
+		t.Errorf("DeleteSnapshot() failed: %v", err)
+	}
+}
+
+func TestCreateSnapshotWithInvalidCommand(t *testing.T) {
+	// Create a config with a command that will fail
+	cfg := config.NewConfig("test")
+	cfg.ZFSCreateSnapshotCmd = []string{"false"} // 'false' always exits with error
+	manager := NewManager(cfg)
+
+	snapshot := &models.Snapshot{
+		PoolName:       "tank",
+		FilesystemName: "tank/data",
+		SnapshotName:   "autosnap_2026-01-25_15:00:00_hourly",
+		Frequency:      "hourly",
+	}
+
+	err := manager.CreateSnapshot(snapshot)
+	if err == nil {
+		t.Error("CreateSnapshot() should have failed with 'false' command")
+	}
+}
+
+func TestDeleteSnapshotWithInvalidCommand(t *testing.T) {
+	// Create a config with a command that will fail
+	cfg := config.NewConfig("test")
+	cfg.ZFSDeleteSnapshotCmd = []string{"false"} // 'false' always exits with error
+	manager := NewManager(cfg)
+
+	snapshot := &models.Snapshot{
+		PoolName:       "tank",
+		FilesystemName: "tank/data",
+		SnapshotName:   "autosnap_2020-01-01_00:00:00_yearly",
+		Frequency:      "yearly",
+	}
+
+	err := manager.DeleteSnapshot(snapshot)
+	if err == nil {
+		t.Error("DeleteSnapshot() should have failed with 'false' command")
+	}
+}
+
+// changeToProjectRoot changes to the project root directory for tests
+func changeToProjectRoot() error {
+	// Get current working directory
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	// Walk up directories to find go.mod
+	dir := wd
+	for {
+		goModPath := filepath.Join(dir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			// Found go.mod, change to this directory
+			return os.Chdir(dir)
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root
+			return fmt.Errorf("could not find project root (go.mod)")
+		}
+		dir = parent
 	}
 }

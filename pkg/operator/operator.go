@@ -30,11 +30,13 @@ func NewOperator(cfg *config.Config) *Operator {
 
 // Run executes the snapshot management logic
 func (o *Operator) Run() error {
-	// Acquire lock to prevent concurrent runs
-	if err := o.acquireLock(); err != nil {
-		return fmt.Errorf("failed to acquire lock: %w", err)
+	// Acquire lock to prevent concurrent runs (if enabled)
+	if o.config.EnableLocking {
+		if err := o.acquireLock(); err != nil {
+			return fmt.Errorf("failed to acquire lock: %w", err)
+		}
+		defer o.releaseLock()
 	}
-	defer o.releaseLock()
 
 	// Reset counters
 	o.deletionCount = 0
@@ -327,56 +329,8 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 		}
 	}
 
-	// Safety check: Never delete all snapshots - always keep at least 1
-	if len(snapshotsToKeep) == 0 && len(snapshotsToDelete) > 0 {
-		klog.Warningf(" Refusing to delete all %d snapshots for %s - keeping newest snapshot as safety measure",
-			len(snapshotsToDelete), frequency)
-		// Keep the newest snapshot
-		if len(snapshotsToDelete) > 0 {
-			newest := snapshotsToDelete[0]
-			for _, s := range snapshotsToDelete {
-				if s.DateTime.After(newest.DateTime) {
-					newest = s
-				}
-			}
-			snapshotsToKeep = append(snapshotsToKeep, newest)
-			// Remove from delete list
-			var filtered []*models.Snapshot
-			for _, s := range snapshotsToDelete {
-				if s.SnapshotName != newest.SnapshotName {
-					filtered = append(filtered, s)
-				}
-			}
-			snapshotsToDelete = filtered
-		}
-	}
-
-	// Process deletions with limit check
-	for _, snapshot := range snapshotsToDelete {
-		// Check deletion limit
-		if o.deletionCount >= o.config.MaxDeletionsPerRun {
-			klog.Warningf(" Reached deletion limit of %d snapshots - skipping remaining deletions", o.config.MaxDeletionsPerRun)
-			break
-		}
-
-		if o.config.DryRun {
-			klog.Infof("[DRY-RUN] Would delete snapshot %s", snapshot.SnapshotName)
-			o.deletionCount++
-		} else {
-			if err := o.manager.DeleteSnapshot(snapshot); err != nil {
-				klog.Infof("Failed to delete snapshot: %v", err)
-			} else {
-				o.deletionCount++
-			}
-		}
-	}
-
-	// Log kept snapshots
-	for _, snapshot := range snapshotsToKeep {
-		klog.Infof("Keeping snapshot %s", snapshot.SnapshotName)
-	}
-
-	// Find recent snapshot
+	// Check if we need to create a new snapshot - do this BEFORE deleting anything
+	// This ensures we never reduce protection before increasing it
 	var snapshotRecent *models.Snapshot
 	for _, snapshot := range snapshots {
 		if o.manager.IsSnapshotRecent(snapshot, frequency, now) {
@@ -386,6 +340,8 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 		}
 	}
 
+	// Create new snapshot first if needed (before any deletions)
+	// This is safer: if snapshot creation fails due to disk issues, we still have old snapshots
 	if snapshotRecent != nil {
 		klog.Infof("Found recent snapshot %s", snapshotRecent.SnapshotName)
 	} else {
@@ -407,9 +363,36 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 			o.creationCount++
 		} else {
 			if err := o.manager.CreateSnapshot(newSnapshot); err != nil {
+				// If snapshot creation fails, don't delete anything - keep old snapshots for safety
 				return fmt.Errorf("failed to create snapshot: %w", err)
 			} else {
 				o.creationCount++
+				klog.Infof("Successfully created snapshot %s", snapshotName)
+			}
+		}
+	}
+
+	// Log kept snapshots
+	for _, snapshot := range snapshotsToKeep {
+		klog.Infof("Keeping snapshot %s", snapshot.SnapshotName)
+	}
+
+	// Now that we've successfully created a new snapshot (if needed), process deletions
+	for _, snapshot := range snapshotsToDelete {
+		// Check deletion limit
+		if o.deletionCount >= o.config.MaxDeletionsPerRun {
+			klog.Warningf(" Reached deletion limit of %d snapshots - skipping remaining deletions", o.config.MaxDeletionsPerRun)
+			break
+		}
+
+		if o.config.DryRun {
+			klog.Infof("[DRY-RUN] Would delete snapshot %s", snapshot.SnapshotName)
+			o.deletionCount++
+		} else {
+			if err := o.manager.DeleteSnapshot(snapshot); err != nil {
+				klog.Infof("Failed to delete snapshot: %v", err)
+			} else {
+				o.deletionCount++
 			}
 		}
 	}

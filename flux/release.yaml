@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.bjw-s.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: zfs-operator-nas-node-1
+  namespace: kube-system
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: zfs-snapshot-operator
+    namespace: kube-system
+  interval: 30m
+  values:
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
+    nodeSelector:
+      kubernetes.io/hostname: nas-node-1
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "10m"
+      limits:
+        memory: "192Mi"

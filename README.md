@@ -1,5 +1,8 @@
 # ZFS Snapshot Operator
 
+[![Test](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml)
+[![Release](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/release.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/release.yml)
+
 A Kubernetes operator for automated ZFS snapshot management with configurable retention policies and pool health monitoring.
 
 > **Note**: This operator is designed for Talos-based NAS systems and requires deployment as a separate Helm release for each node with ZFS pools.
@@ -16,9 +19,10 @@ A Kubernetes operator for automated ZFS snapshot management with configurable re
   - Logs pool errors (read, write, checksum errors)
   - Logs filesystem usage statistics
 - **Safety Features**:
+  - **Create-first approach**: New snapshots are created before any deletions to prevent loss of backup protection
+  - **Fail-safe behavior**: If snapshot creation fails (disk errors, filesystem full, etc.), no deletions occur
   - **Dry-run mode**: Preview snapshot operations (create/delete) without actually executing them
   - **Deletion limits**: Maximum number of snapshots to delete per run
-  - **Minimum retention**: Never deletes all snapshots - always keeps at least 1
   - **Concurrent run protection**: Lock file prevents multiple instances running simultaneously
   - **Error exit codes**: Exits with code 1 if any pool is unhealthy or commands fail
 - **Kubernetes Native**: Runs as a CronJob with configurable scheduling
@@ -33,16 +37,25 @@ Each run performs the following operations:
 1. Lists all ZFS pools and snapshots on the host
 2. Filters pools based on whitelist configuration (if specified)
 3. Checks pool health status and scrub age
-4. Creates new snapshots with timestamp-based naming
+4. **Creates new snapshots first** (if needed) - this happens before any deletions
 5. Cleans up old snapshots according to retention policies
 
 **Important:** The operator is stateless and resilient to scheduling gaps. If it hasn't run for some time (e.g., due to cluster downtime or maintenance), it will still work correctly when it resumes. The time-window retention logic ensures proper snapshot coverage based on actual snapshot ages, not execution frequency.
 
+**Safety-First Design:** New snapshots are always created before any old snapshots are deleted. If snapshot creation fails (e.g., due to disk issues or filesystem errors), the operator aborts the run without deleting any existing snapshots, ensuring your backup protection is never reduced.
+
 ## Prerequisites
+
+### For Kubernetes/Talos Deployment
 
 - Kubernetes cluster with host access (hostPID required)
 - ZFS installed on the host nodes
-- Host root filesystem mounted in the container
+- Host root filesystem mounted in the container (in case of Talos)
+
+### For Standalone Binary
+
+- Any Linux system with ZFS installed
+- Run in direct mode (default): `./operator -mode direct`
 
 ## Installation
 
@@ -75,6 +88,18 @@ helm install zfs-snapshot-operator ./helm
 # Install with custom values
 helm install zfs-snapshot-operator ./helm -f custom-values.yaml
 ```
+
+### Using Flux
+
+Example Flux configuration files are available in the [flux/](flux/) directory:
+
+```bash
+# Apply the OCIRepository and HelmRelease
+kubectl apply -f flux/chart.yaml
+kubectl apply -f flux/release.yaml
+```
+
+See [flux/chart.yaml](flux/chart.yaml) and [flux/release.yaml](flux/release.yaml) for complete examples.
 
 ### Manual Installation
 
@@ -129,6 +154,7 @@ The operator is configured through environment variables, which can be set in th
 | `LOG_LEVEL` | Log level: `info` or `debug` (debug prints all executed commands) | `info` |
 | `DRY_RUN` | If `true`, log what would be created/deleted but don't actually modify snapshots | `false` |
 | `MAX_DELETIONS_PER_RUN` | Maximum number of snapshots to delete in a single run (safety limit) | `100` |
+| `ENABLE_LOCKING` | If `true`, use lock file to prevent concurrent runs | `true` |
 | `LOCK_FILE_PATH` | Path to lock file for preventing concurrent runs | `/tmp/zfs-snapshot-operator.lock` |
 | `MAX_HOURLY_SNAPSHOTS` | Maximum number of hourly snapshots to retain | `24` |
 | `MAX_DAILY_SNAPSHOTS` | Maximum number of daily snapshots to retain | `7` |
@@ -219,6 +245,9 @@ operator:
 
   # Limit maximum deletions per run (safety against bugs)
   maxDeletionsPerRun: 50
+
+  # Disable concurrent run protection (enabled by default)
+  enableLocking: false
 
   # Custom lock file path
   lockFilePath: /var/run/zfs-operator.lock
@@ -358,21 +387,15 @@ go test ./pkg/... -cover
 
 ### Test Coverage
 
-Current test coverage:
-- `pkg/config`: 98.8%
+[![Test](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml)
+
+Current test coverage (from latest test run):
+- `pkg/config`: 91.2%
 - `pkg/parser`: 80.3%
-- `pkg/zfs`: 49.6%
-- `pkg/operator`: 10.7%
+- `pkg/zfs`: 83.5%
+- `pkg/operator`: 35.8%
 
-### Running in Test Mode
-
-For development and testing, run the operator in test mode:
-
-```bash
-./operator -mode test
-```
-
-In test mode, the operator uses test data files from the `test/` directory instead of executing actual ZFS commands.
+Coverage reports are available as artifacts in the [test workflow runs](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml).
 
 ### Project Structure
 
@@ -417,6 +440,13 @@ The operator uses **time-window retention with deduplication**:
 - Keeps the **newest snapshot** from each period within the retention window
 - Automatically deletes snapshots outside the retention window or duplicates within a period
 - Preserves manual snapshots (not matching the configured prefix pattern)
+
+**Safety-First Execution Order:**
+1. **Create** new snapshots first (if needed)
+2. If creation succeeds, **delete** old snapshots
+3. If creation fails, abort without deleting anything
+
+This ensures your backup protection never decreases. If ZFS has issues (disk errors, filesystem full, etc.), the operator fails early and preserves existing snapshots.
 
 **Scheduling:** While the operator should run hourly for optimal coverage, it will function correctly even if it hasn't run for days or weeks. The retention logic is based on snapshot ages, not run frequency.
 
@@ -517,7 +547,7 @@ Developed by [runningman84](https://github.com/runningman84)
 
 ### Acknowledgments
 
-- Snapshot naming convention inspired by [zfs-auto-snapshot](https://github.com/zfsonlinux/zfs-auto-snapshot)
+- Snapshot naming convention and concept inspired by [zfs-auto-snapshot](https://github.com/zfsonlinux/zfs-auto-snapshot)
 
 ## Support
 
