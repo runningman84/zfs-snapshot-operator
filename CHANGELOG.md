@@ -1,3 +1,10 @@
+## [1.2.4](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.3...v1.2.4) (2026-01-25)
+
+
+### Bug Fixes
+
+* filter for pool and filesystem name ([293e497](https://github.com/runningman84/zfs-snapshot-operator/commit/293e49778501bc3d62640e84d9869dd85e03e669))
+
 ## [1.2.3](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.2...v1.2.3) (2026-01-25)
 
 
