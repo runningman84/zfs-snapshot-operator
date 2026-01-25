@@ -30,11 +30,13 @@ func NewOperator(cfg *config.Config) *Operator {
 
 // Run executes the snapshot management logic
 func (o *Operator) Run() error {
-	// Acquire lock to prevent concurrent runs
-	if err := o.acquireLock(); err != nil {
-		return fmt.Errorf("failed to acquire lock: %w", err)
+	// Acquire lock to prevent concurrent runs (if enabled)
+	if o.config.EnableLocking {
+		if err := o.acquireLock(); err != nil {
+			return fmt.Errorf("failed to acquire lock: %w", err)
+		}
+		defer o.releaseLock()
 	}
-	defer o.releaseLock()
 
 	// Reset counters
 	o.deletionCount = 0

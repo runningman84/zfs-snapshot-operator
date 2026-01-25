@@ -154,6 +154,7 @@ The operator is configured through environment variables, which can be set in th
 | `LOG_LEVEL` | Log level: `info` or `debug` (debug prints all executed commands) | `info` |
 | `DRY_RUN` | If `true`, log what would be created/deleted but don't actually modify snapshots | `false` |
 | `MAX_DELETIONS_PER_RUN` | Maximum number of snapshots to delete in a single run (safety limit) | `100` |
+| `ENABLE_LOCKING` | If `true`, use lock file to prevent concurrent runs | `true` |
 | `LOCK_FILE_PATH` | Path to lock file for preventing concurrent runs | `/tmp/zfs-snapshot-operator.lock` |
 | `MAX_HOURLY_SNAPSHOTS` | Maximum number of hourly snapshots to retain | `24` |
 | `MAX_DAILY_SNAPSHOTS` | Maximum number of daily snapshots to retain | `7` |
@@ -244,6 +245,9 @@ operator:
 
   # Limit maximum deletions per run (safety against bugs)
   maxDeletionsPerRun: 50
+
+  # Disable concurrent run protection (enabled by default)
+  enableLocking: false
 
   # Custom lock file path
   lockFilePath: /var/run/zfs-operator.lock

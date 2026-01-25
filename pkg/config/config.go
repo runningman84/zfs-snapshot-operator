@@ -15,6 +15,7 @@ type Config struct {
 	// Safety features
 	DryRun             bool   // If true, log deletions but don't actually delete
 	MaxDeletionsPerRun int    // Maximum snapshots to delete in one run
+	EnableLocking      bool   // If true, use lock file to prevent concurrent runs (default: true)
 	LockFilePath       string // Path to lock file for preventing concurrent runs
 
 	MaxHourlySnapshots  int
@@ -57,6 +58,7 @@ func NewConfig(mode string) *Config {
 		LogLevel:              getEnvAsString("LOG_LEVEL", "info"),
 		DryRun:                getEnvAsBool("DRY_RUN", false),
 		MaxDeletionsPerRun:    getEnvAsInt("MAX_DELETIONS_PER_RUN", 100),
+		EnableLocking:         getEnvAsBool("ENABLE_LOCKING", true),
 		LockFilePath:          getEnvAsString("LOCK_FILE_PATH", "/tmp/zfs-snapshot-operator.lock"),
 		MaxHourlySnapshots:    getEnvAsInt("MAX_HOURLY_SNAPSHOTS", 24),
 		MaxDailySnapshots:     getEnvAsInt("MAX_DAILY_SNAPSHOTS", 7),

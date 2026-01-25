@@ -48,6 +48,8 @@ spec:
                 value: {{ .Values.operator.dryRun | quote }}
               - name: MAX_DELETIONS_PER_RUN
                 value: {{ .Values.operator.maxDeletionsPerRun | quote }}
+              - name: ENABLE_LOCKING
+                value: {{ .Values.operator.enableLocking | quote }}
               - name: LOCK_FILE_PATH
                 value: {{ .Values.operator.lockFilePath | quote }}
               - name: MAX_HOURLY_SNAPSHOTS
