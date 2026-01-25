@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.1...v1.2.2) (2026-01-25)
+
+
+### Bug Fixes
+
+* imrpve retention logic ([40197b2](https://github.com/runningman84/zfs-snapshot-operator/commit/40197b27f92bcb092bd42a085f15696ef2f9417f))
+
 ## [1.2.1](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.0...v1.2.1) (2026-01-24)
 
 
