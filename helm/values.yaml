@@ -28,7 +28,7 @@ image:
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "1.2.3"
+  tag: "1.2.4"
 # CronJob configuration
 cronjob:
   # Schedule in Cron format, see https://en.wikipedia.org/wiki/Cron
@@ -53,7 +53,7 @@ cronjob:
 # Maximum number of snapshots to keep per frequency
 # Set to 0 to disable a frequency (no snapshots created or kept)
 snapshots:
-  maxFrequently: 0  # 15-minute snapshots (disabled by default)
+  maxFrequently: 0 # 15-minute snapshots (disabled by default)
   maxHourly: 24
   maxDaily: 7
   maxWeekly: 4
