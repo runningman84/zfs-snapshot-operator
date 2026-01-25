@@ -393,7 +393,7 @@ Current test coverage (from latest test run):
 - `pkg/config`: 91.2%
 - `pkg/parser`: 80.3%
 - `pkg/zfs`: 83.5%
-- `pkg/operator`: 36.0%
+- `pkg/operator`: 35.8%
 
 Coverage reports are available as artifacts in the [test workflow runs](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml).
 
