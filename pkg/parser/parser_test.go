@@ -106,9 +106,106 @@ func TestParseSnapshotsJSON_InvalidJSON(t *testing.T) {
 }
 
 func TestParseSnapshotsJSON_InvalidSnapshotFormat(t *testing.T) {
-	// This test is no longer relevant since the JSON structure provides all fields
-	// The format validation happens at the ZFS level, not in parsing
-	t.Skip("Snapshot format validation not needed with structured JSON")
+	// Test that malformed snapshot names are parsed but marked with empty frequency
+	// This ensures they won't be processed by retention logic
+	jsonData := `{
+  "output_version": {
+    "command": "zfs list",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "datasets": {
+    "tank/data@autosnap_whatever_test": {
+      "name": "tank/data@autosnap_whatever_test",
+      "type": "SNAPSHOT",
+      "pool": "tank",
+      "dataset": "tank/data",
+      "snapshot_name": "autosnap_whatever_test"
+    },
+    "tank/data@autosnap_2024-01-15_badformat": {
+      "name": "tank/data@autosnap_2024-01-15_badformat",
+      "type": "SNAPSHOT",
+      "pool": "tank",
+      "dataset": "tank/data",
+      "snapshot_name": "autosnap_2024-01-15_badformat"
+    },
+    "tank/data@autosnap_notadate_yearly": {
+      "name": "tank/data@autosnap_notadate_yearly",
+      "type": "SNAPSHOT",
+      "pool": "tank",
+      "dataset": "tank/data",
+      "snapshot_name": "autosnap_notadate_yearly"
+    },
+    "tank/data@autosnap_2024-01-15_10:00:00_hourly": {
+      "name": "tank/data@autosnap_2024-01-15_10:00:00_hourly",
+      "type": "SNAPSHOT",
+      "pool": "tank",
+      "dataset": "tank/data",
+      "snapshot_name": "autosnap_2024-01-15_10:00:00_hourly"
+    },
+    "tank/data@random_snapshot": {
+      "name": "tank/data@random_snapshot",
+      "type": "SNAPSHOT",
+      "pool": "tank",
+      "dataset": "tank/data",
+      "snapshot_name": "random_snapshot"
+    }
+  }
+}`
+
+	snapshots, err := ParseSnapshotsJSON([]byte(jsonData), "autosnap")
+	if err != nil {
+		t.Fatalf("ParseSnapshotsJSON() error = %v", err)
+	}
+
+	if len(snapshots) != 5 {
+		t.Errorf("ParseSnapshotsJSON() returned %d snapshots, want 5", len(snapshots))
+	}
+
+	// Test malformed snapshots are parsed but have empty frequency
+	malformedTests := []struct {
+		name              string
+		expectedFrequency string
+		expectedZeroTime  bool
+	}{
+		{"autosnap_whatever_test", "", true},                     // No date, no valid frequency
+		{"autosnap_2024-01-15_badformat", "", true},              // Incomplete date (missing time), invalid frequency
+		{"autosnap_notadate_yearly", "yearly", true},             // Invalid date, but valid frequency
+		{"autosnap_2024-01-15_10:00:00_hourly", "hourly", false}, // Valid snapshot
+		{"random_snapshot", "", true},                            // Completely unrelated
+	}
+
+	for _, tt := range malformedTests {
+		found := false
+		for _, snap := range snapshots {
+			if snap.SnapshotName == tt.name {
+				found = true
+				if snap.Frequency != tt.expectedFrequency {
+					t.Errorf("Snapshot %s: frequency = %q, want %q", tt.name, snap.Frequency, tt.expectedFrequency)
+				}
+				if tt.expectedZeroTime && !snap.DateTime.IsZero() {
+					t.Errorf("Snapshot %s: DateTime should be zero, got %v", tt.name, snap.DateTime)
+				}
+				if !tt.expectedZeroTime && snap.DateTime.IsZero() {
+					t.Errorf("Snapshot %s: DateTime should not be zero", tt.name)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("Snapshot %s not found in parsed results", tt.name)
+		}
+	}
+
+	// Verify that only properly formatted snapshots have both frequency and datetime
+	validCount := 0
+	for _, snap := range snapshots {
+		if snap.Frequency != "" && !snap.DateTime.IsZero() {
+			validCount++
+		}
+	}
+	if validCount != 1 {
+		t.Errorf("Expected 1 valid snapshot with both frequency and datetime, got %d", validCount)
+	}
 }
 
 func TestParsePoolsJSON(t *testing.T) {
