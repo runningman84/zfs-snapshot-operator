@@ -256,6 +256,96 @@ func TestGetSnapshotsFiltered(t *testing.T) {
 	}
 }
 
+func TestGetSnapshotsFiltersCorrectlyByPoolAndFilesystem(t *testing.T) {
+	// This test verifies the fix for a bug where GetSnapshots was not filtering
+	// by pool/filesystem, causing snapshots from tank/private to be returned
+	// when asking for tank/public snapshots
+
+	// Skip if test data files don't exist
+	if _, err := exec.LookPath("cat"); err != nil {
+		t.Skip("cat command not available")
+	}
+
+	cfg := config.NewConfig("test")
+	manager := NewManager(cfg)
+
+	// Get snapshots for tank/private
+	privateSnapshots, err := manager.GetSnapshots("tank", "tank/private", "hourly")
+	if err != nil {
+		t.Skipf("GetSnapshots() error = %v (test data may not be available)", err)
+	}
+
+	// Get snapshots for tank/public
+	publicSnapshots, err := manager.GetSnapshots("tank", "tank/public", "hourly")
+	if err != nil {
+		t.Skipf("GetSnapshots() error = %v (test data may not be available)", err)
+	}
+
+	// Verify that tank/private snapshots are only for tank/private
+	for _, snapshot := range privateSnapshots {
+		if snapshot.FilesystemName != "tank/private" {
+			t.Errorf("GetSnapshots(tank, tank/private) returned snapshot for wrong filesystem: %s (snapshot: %s)",
+				snapshot.FilesystemName, snapshot.SnapshotName)
+		}
+		if snapshot.PoolName != "tank" {
+			t.Errorf("GetSnapshots(tank, tank/private) returned snapshot for wrong pool: %s (snapshot: %s)",
+				snapshot.PoolName, snapshot.SnapshotName)
+		}
+	}
+
+	// Verify that tank/public snapshots are only for tank/public
+	for _, snapshot := range publicSnapshots {
+		if snapshot.FilesystemName != "tank/public" {
+			t.Errorf("GetSnapshots(tank, tank/public) returned snapshot for wrong filesystem: %s (snapshot: %s)",
+				snapshot.FilesystemName, snapshot.SnapshotName)
+		}
+		if snapshot.PoolName != "tank" {
+			t.Errorf("GetSnapshots(tank, tank/public) returned snapshot for wrong pool: %s (snapshot: %s)",
+				snapshot.PoolName, snapshot.SnapshotName)
+		}
+	}
+
+	// Verify that snapshots are not shared between filesystems
+	// (this was the bug: tank/public would see tank/private snapshots)
+	privateSnapshotNames := make(map[string]bool)
+	for _, snapshot := range privateSnapshots {
+		privateSnapshotNames[snapshot.SnapshotName] = true
+	}
+
+	for _, snapshot := range publicSnapshots {
+		if privateSnapshotNames[snapshot.SnapshotName] {
+			t.Errorf("BUG: GetSnapshots returned same snapshot for both tank/private and tank/public: %s",
+				snapshot.SnapshotName)
+		}
+	}
+
+	// Get all snapshots for tank pool (no filesystem filter)
+	allTankSnapshots, err := manager.GetSnapshots("tank", "", "hourly")
+	if err != nil {
+		t.Skipf("GetSnapshots() error = %v (test data may not be available)", err)
+	}
+
+	// Verify that unfiltered results include both filesystems
+	hasPrivate := false
+	hasPublic := false
+	for _, snapshot := range allTankSnapshots {
+		if snapshot.FilesystemName == "tank/private" {
+			hasPrivate = true
+		}
+		if snapshot.FilesystemName == "tank/public" {
+			hasPublic = true
+		}
+	}
+
+	// Only check if we actually have snapshots in the test data
+	if len(privateSnapshots) > 0 && len(allTankSnapshots) > 0 && !hasPrivate {
+		t.Error("GetSnapshots(tank, '', hourly) should include tank/private snapshots when filesystem filter is empty")
+	}
+	if len(publicSnapshots) > 0 && len(allTankSnapshots) > 0 && !hasPublic {
+		t.Error("GetSnapshots(tank, '', hourly) should include tank/public snapshots when filesystem filter is empty")
+	}
+}
+
 func TestGetPoolStatus(t *testing.T) {
 	// Skip if test data files don't exist
 	if _, err := exec.LookPath("cat"); err != nil {

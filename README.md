@@ -156,11 +156,12 @@ The operator is configured through environment variables, which can be set in th
 | `MAX_DELETIONS_PER_RUN` | Maximum number of snapshots to delete in a single run (safety limit) | `100` |
 | `ENABLE_LOCKING` | If `true`, use lock file to prevent concurrent runs | `true` |
 | `LOCK_FILE_PATH` | Path to lock file for preventing concurrent runs | `/tmp/zfs-snapshot-operator.lock` |
-| `MAX_HOURLY_SNAPSHOTS` | Maximum number of hourly snapshots to retain | `24` |
-| `MAX_DAILY_SNAPSHOTS` | Maximum number of daily snapshots to retain | `7` |
-| `MAX_WEEKLY_SNAPSHOTS` | Maximum number of weekly snapshots to retain | `4` |
-| `MAX_MONTHLY_SNAPSHOTS` | Maximum number of monthly snapshots to retain | `12` |
-| `MAX_YEARLY_SNAPSHOTS` | Maximum number of yearly snapshots to retain | `3` |
+| `MAX_FREQUENTLY_SNAPSHOTS` | Maximum number of frequent (15-minute) snapshots to retain (0 = disabled) | `0` |
+| `MAX_HOURLY_SNAPSHOTS` | Maximum number of hourly snapshots to retain (0 = disabled) | `24` |
+| `MAX_DAILY_SNAPSHOTS` | Maximum number of daily snapshots to retain (0 = disabled) | `7` |
+| `MAX_WEEKLY_SNAPSHOTS` | Maximum number of weekly snapshots to retain (0 = disabled) | `4` |
+| `MAX_MONTHLY_SNAPSHOTS` | Maximum number of monthly snapshots to retain (0 = disabled) | `12` |
+| `MAX_YEARLY_SNAPSHOTS` | Maximum number of yearly snapshots to retain (0 = disabled) | `3` |
 | `POOL_WHITELIST` | Comma-separated list of pools to manage (empty = all pools) | `""` |
 | `FILESYSTEM_WHITELIST` | Comma-separated list of filesystems to manage (empty = all filesystems) | `""` |
 | `SNAPSHOT_PREFIX` | Prefix for automatic snapshot names | `autosnap` |
@@ -178,7 +179,9 @@ cronjob:
   schedule: "0 * * * *"
 
 # Snapshot retention
+# Set any frequency to 0 to disable it (no snapshots created or kept)
 snapshots:
+  maxFrequently: 0  # 15-minute snapshots (disabled by default)
   maxHourly: 24
   maxDaily: 7
   maxWeekly: 4
@@ -276,11 +279,18 @@ Snapshots are created with the following naming pattern:
 The default prefix is `autosnap` but can be customized via the `SNAPSHOT_PREFIX` environment variable.
 
 Examples (with default prefix):
+- `autosnap_2026-01-25_14:15:00_frequently` (15-minute intervals)
 - `autosnap_2026-01-25_14:00:00_hourly`
 - `autosnap_2026-01-25_00:00:00_daily`
 - `autosnap_2026-01-20_00:00:00_weekly` (Mondays)
 - `autosnap_2026-01-01_00:00:00_monthly` (1st of month)
 - `autosnap_2026-01-01_00:00:00_yearly` (Jan 1st)
+
+**Disabling Frequencies:**
+
+Set any frequency to 0 to completely disable it. The operator will:
+- Skip creating new snapshots for that frequency
+- Delete any existing snapshots of that frequency (cleanup)
 
 ## Health Monitoring
 
@@ -390,10 +400,10 @@ go test ./pkg/... -cover
 [![Test](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml/badge.svg)](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml)
 
 Current test coverage (from latest test run):
-- `pkg/config`: 91.2%
+- `pkg/config`: 88.3%
 - `pkg/parser`: 80.3%
-- `pkg/zfs`: 83.5%
-- `pkg/operator`: 35.8%
+- `pkg/zfs`: 80.9%
+- `pkg/operator`: 33.5%
 
 Coverage reports are available as artifacts in the [test workflow runs](https://github.com/runningman84/zfs-snapshot-operator/actions/workflows/test.yml).
 
@@ -427,11 +437,14 @@ Coverage reports are available as artifacts in the [test workflow runs](https://
 
 ### Snapshot Creation Logic
 
-1. **Hourly Snapshots**: Created every hour (when CronJob runs)
-2. **Daily Snapshots**: Created once per day (at first run after midnight)
-3. **Weekly Snapshots**: Created on Mondays (at first run on Monday)
-4. **Monthly Snapshots**: Created on the 1st of each month
-5. **Yearly Snapshots**: Created on January 1st
+1. **Frequently Snapshots**: Created every 15 minutes (disabled by default, set `maxFrequently > 0` to enable)
+2. **Hourly Snapshots**: Created every hour (when CronJob runs)
+3. **Daily Snapshots**: Created once per day (at first run after midnight)
+4. **Weekly Snapshots**: Created on Mondays (at first run on Monday)
+5. **Monthly Snapshots**: Created on the 1st of each month
+6. **Yearly Snapshots**: Created on January 1st
+
+**Note:** Setting any frequency's max count to 0 disables that frequency entirely - no snapshots will be created, and existing snapshots of that frequency will be deleted.
 
 ### Retention Logic
 
@@ -460,6 +473,7 @@ This ensures your backup protection never decreases. If ZFS has issues (disk err
 ### Age Calculation
 
 Snapshots are categorized by age:
+- **Frequently**: Between 15 minutes and 1 hour old (15-minute intervals)
 - **Hourly**: Between 1 hour and 1 day old
 - **Daily**: Between 1 day and 1 week old
 - **Weekly**: Between 1 week and 1 month old

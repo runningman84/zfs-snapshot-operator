@@ -279,7 +279,7 @@ func TestGetMinSnapshotDate(t *testing.T) {
 func TestFrequencies(t *testing.T) {
 	frequencies := Frequencies()
 
-	expectedFrequencies := []string{"hourly", "daily", "weekly", "monthly", "yearly"}
+	expectedFrequencies := []string{"frequently", "hourly", "daily", "weekly", "monthly", "yearly"}
 
 	if len(frequencies) != len(expectedFrequencies) {
 		t.Errorf("Frequencies() returned %d items, want %d", len(frequencies), len(expectedFrequencies))
