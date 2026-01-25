@@ -94,6 +94,8 @@ jobs:
         with:
           context: .
           platforms: ${{ matrix.platform }}
+          build-args: |
+            VERSION=${{ steps.tag.outputs.version }}
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
           labels: |
             org.opencontainers.image.created=${{ github.event.repository.updated_at }}
