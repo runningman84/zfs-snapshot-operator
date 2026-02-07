@@ -206,14 +206,50 @@ func (m *Manager) CreateSnapshot(snapshot *models.Snapshot) error {
 	return nil
 }
 
-// IsSnapshotRecent checks if a snapshot is recent enough for the given frequency
+// IsSnapshotRecent checks if a snapshot is from the current time period for the given frequency
+// This ensures we create one snapshot per period (hour, day, week, etc.) regardless of exact timing
 func (m *Manager) IsSnapshotRecent(snapshot *models.Snapshot, frequency string, now time.Time) bool {
 	if snapshot.Frequency == "" || snapshot.Frequency != frequency {
 		return false
 	}
 
-	minDate := m.config.GetMinSnapshotDate(frequency, now)
-	return snapshot.DateTime.After(minDate)
+	// Check if the snapshot is from the same time period as "now"
+	// This is more reliable than duration-based checks which can skip periods
+	// due to timing variations in cronjob execution
+	snapshotPeriod := GetTimePeriodKey(snapshot.DateTime, frequency)
+	currentPeriod := GetTimePeriodKey(now, frequency)
+
+	return snapshotPeriod == currentPeriod
+}
+
+// GetTimePeriodKey returns a unique key for the time period based on frequency
+func GetTimePeriodKey(t time.Time, frequency string) string {
+	switch frequency {
+	case "frequently":
+		// Group by 15-minute intervals: "2026-01-25 14:00" (rounds down to nearest 15 min)
+		year, month, day := t.Date()
+		hour := t.Hour()
+		minute := (t.Minute() / 15) * 15
+		return fmt.Sprintf("%d-%02d-%02d %02d:%02d", year, month, day, hour, minute)
+	case "hourly":
+		// Group by hour: "2026-01-25 14"
+		return t.Format("2006-01-02 15")
+	case "daily":
+		// Group by day: "2026-01-25"
+		return t.Format("2006-01-02")
+	case "weekly":
+		// Group by ISO week: "2026-W04"
+		year, week := t.ISOWeek()
+		return fmt.Sprintf("%d-W%02d", year, week)
+	case "monthly":
+		// Group by month: "2026-01"
+		return t.Format("2006-01")
+	case "yearly":
+		// Group by year: "2026"
+		return t.Format("2006")
+	default:
+		return t.Format("2006-01-02 15:04:05")
+	}
 }
 
 // CanSnapshotBeDeleted checks if a snapshot can be deleted based on frequency and age

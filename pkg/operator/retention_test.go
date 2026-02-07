@@ -3,6 +3,8 @@ package operator
 import (
 	"testing"
 	"time"
+
+	"github.com/runningman84/zfs-snapshot-operator/pkg/zfs"
 )
 
 // retention_test.go contains tests for the time-window retention logic with deduplication.
@@ -21,7 +23,6 @@ import (
 // just keeping the N most recent snapshots.
 
 func TestGetTimePeriodKey(t *testing.T) {
-	op := &Operator{}
 
 	tests := []struct {
 		name      string
@@ -143,7 +144,7 @@ func TestGetTimePeriodKey(t *testing.T) {
 				t.Fatalf("Failed to parse timestamp: %v", err)
 			}
 
-			result := op.getTimePeriodKey(ts, tt.frequency)
+			result := zfs.GetTimePeriodKey(ts, tt.frequency)
 			if result != tt.expected {
 				t.Errorf("getTimePeriodKey(%s, %s) = %s, want %s",
 					tt.timestamp, tt.frequency, result, tt.expected)
@@ -153,16 +154,15 @@ func TestGetTimePeriodKey(t *testing.T) {
 }
 
 func TestGetTimePeriodKeyConsistency(t *testing.T) {
-	op := &Operator{}
 
 	// Test that multiple snapshots on the same day have the same daily key
 	day1_morning := time.Date(2026, 1, 25, 8, 0, 0, 0, time.UTC)
 	day1_afternoon := time.Date(2026, 1, 25, 16, 30, 0, 0, time.UTC)
 	day1_evening := time.Date(2026, 1, 25, 23, 59, 59, 0, time.UTC)
 
-	key1 := op.getTimePeriodKey(day1_morning, "daily")
-	key2 := op.getTimePeriodKey(day1_afternoon, "daily")
-	key3 := op.getTimePeriodKey(day1_evening, "daily")
+	key1 := zfs.GetTimePeriodKey(day1_morning, "daily")
+	key2 := zfs.GetTimePeriodKey(day1_afternoon, "daily")
+	key3 := zfs.GetTimePeriodKey(day1_evening, "daily")
 
 	if key1 != key2 || key2 != key3 {
 		t.Errorf("Daily snapshots on same day should have same key: %s, %s, %s", key1, key2, key3)
@@ -170,7 +170,7 @@ func TestGetTimePeriodKeyConsistency(t *testing.T) {
 
 	// Test that snapshots on different days have different keys
 	day2 := time.Date(2026, 1, 26, 12, 0, 0, 0, time.UTC)
-	key4 := op.getTimePeriodKey(day2, "daily")
+	key4 := zfs.GetTimePeriodKey(day2, "daily")
 
 	if key1 == key4 {
 		t.Errorf("Daily snapshots on different days should have different keys: %s vs %s", key1, key4)
@@ -178,7 +178,6 @@ func TestGetTimePeriodKeyConsistency(t *testing.T) {
 }
 
 func TestYearlyDeduplication(t *testing.T) {
-	op := &Operator{}
 
 	// Simulate the scenario from the user's logs:
 	// Multiple yearly snapshots in 2024, some in 2025, some in 2026
@@ -198,7 +197,7 @@ func TestYearlyDeduplication(t *testing.T) {
 	var key2024 string
 	for _, snap := range snapshots {
 		ts, _ := time.Parse("2006-01-02 15:04:05", snap.timestamp)
-		key := op.getTimePeriodKey(ts, "yearly")
+		key := zfs.GetTimePeriodKey(ts, "yearly")
 
 		if snap.year == "2024" {
 			if key2024 == "" {
@@ -218,9 +217,9 @@ func TestYearlyDeduplication(t *testing.T) {
 	ts2025, _ := time.Parse("2006-01-02 15:04:05", "2025-01-01 00:00:00")
 	ts2026, _ := time.Parse("2006-01-02 15:04:05", "2026-01-25 12:00:00")
 
-	key2024 = op.getTimePeriodKey(ts2024, "yearly")
-	key2025 := op.getTimePeriodKey(ts2025, "yearly")
-	key2026 := op.getTimePeriodKey(ts2026, "yearly")
+	key2024 = zfs.GetTimePeriodKey(ts2024, "yearly")
+	key2025 := zfs.GetTimePeriodKey(ts2025, "yearly")
+	key2026 := zfs.GetTimePeriodKey(ts2026, "yearly")
 
 	if key2024 == key2025 || key2025 == key2026 || key2024 == key2026 {
 		t.Errorf("Different years should have different keys: 2024=%s, 2025=%s, 2026=%s",
@@ -229,7 +228,6 @@ func TestYearlyDeduplication(t *testing.T) {
 }
 
 func TestWeeklyISOWeekGrouping(t *testing.T) {
-	op := &Operator{}
 
 	// Test ISO week boundaries
 	// ISO week 1 of 2026 starts on Monday, December 29, 2025
@@ -269,7 +267,7 @@ func TestWeeklyISOWeekGrouping(t *testing.T) {
 				t.Fatalf("Failed to parse date: %v", err)
 			}
 
-			key := op.getTimePeriodKey(ts, "weekly")
+			key := zfs.GetTimePeriodKey(ts, "weekly")
 			if key != tt.expected {
 				t.Errorf("getTimePeriodKey(%s, weekly) = %s, want %s", tt.date, key, tt.expected)
 			}
@@ -278,7 +276,6 @@ func TestWeeklyISOWeekGrouping(t *testing.T) {
 }
 
 func TestMonthlyGrouping(t *testing.T) {
-	op := &Operator{}
 
 	// Test that snapshots throughout the month map to the same key
 	snapshots := []string{
@@ -290,7 +287,7 @@ func TestMonthlyGrouping(t *testing.T) {
 	var keys []string
 	for _, snap := range snapshots {
 		ts, _ := time.Parse("2006-01-02 15:04:05", snap)
-		key := op.getTimePeriodKey(ts, "monthly")
+		key := zfs.GetTimePeriodKey(ts, "monthly")
 		keys = append(keys, key)
 	}
 
@@ -303,14 +300,13 @@ func TestMonthlyGrouping(t *testing.T) {
 
 	// Next month should be different
 	nextMonth, _ := time.Parse("2006-01-02 15:04:05", "2026-02-01 00:00:00")
-	nextKey := op.getTimePeriodKey(nextMonth, "monthly")
+	nextKey := zfs.GetTimePeriodKey(nextMonth, "monthly")
 	if nextKey == keys[0] {
 		t.Errorf("February should have different key than January, both are %s", nextKey)
 	}
 }
 
 func TestEdgeCases(t *testing.T) {
-	op := &Operator{}
 
 	tests := []struct {
 		name      string
@@ -347,7 +343,7 @@ func TestEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Should not panic
-			key := op.getTimePeriodKey(tt.timestamp, tt.frequency)
+			key := zfs.GetTimePeriodKey(tt.timestamp, tt.frequency)
 			if key == "" {
 				t.Errorf("Expected non-empty key for %s", tt.name)
 			}
@@ -356,12 +352,11 @@ func TestEdgeCases(t *testing.T) {
 }
 
 func TestInvalidFrequency(t *testing.T) {
-	op := &Operator{}
 
 	ts := time.Date(2026, 1, 25, 12, 0, 0, 0, time.UTC)
 
 	// Test with invalid frequency - should fall back to full timestamp
-	key := op.getTimePeriodKey(ts, "invalid")
+	key := zfs.GetTimePeriodKey(ts, "invalid")
 
 	// Should return a timestamp string (the default case)
 	expected := ts.Format("2006-01-02 15:04:05")

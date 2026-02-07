@@ -327,7 +327,7 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 	// Group snapshots by time period and keep only the newest in each period
 	periodMap := make(map[string]*models.Snapshot)
 	for _, snapshot := range snapshots {
-		periodKey := o.getTimePeriodKey(snapshot.DateTime, frequency)
+		periodKey := zfs.GetTimePeriodKey(snapshot.DateTime, frequency)
 		// Keep the newest snapshot in each period (since we're iterating newest-first)
 		if _, exists := periodMap[periodKey]; !exists {
 			periodMap[periodKey] = snapshot
@@ -339,7 +339,7 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 	var snapshotsToKeep []*models.Snapshot
 
 	for _, snapshot := range snapshots {
-		periodKey := o.getTimePeriodKey(snapshot.DateTime, frequency)
+		periodKey := zfs.GetTimePeriodKey(snapshot.DateTime, frequency)
 
 		// Check if this snapshot is the keeper for its period
 		isKeeperForPeriod := periodMap[periodKey] == snapshot
@@ -423,36 +423,6 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 	}
 
 	return nil
-}
-
-// getTimePeriodKey returns a unique key for the time period based on frequency
-func (o *Operator) getTimePeriodKey(t time.Time, frequency string) string {
-	switch frequency {
-	case "frequently":
-		// Group by 15-minute intervals: "2026-01-25 14:00" (rounds down to nearest 15 min)
-		year, month, day := t.Date()
-		hour := t.Hour()
-		minute := (t.Minute() / 15) * 15
-		return fmt.Sprintf("%d-%02d-%02d %02d:%02d", year, month, day, hour, minute)
-	case "hourly":
-		// Group by hour: "2026-01-25 14"
-		return t.Format("2006-01-02 15")
-	case "daily":
-		// Group by day: "2026-01-25"
-		return t.Format("2006-01-02")
-	case "weekly":
-		// Group by ISO week: "2026-W04"
-		year, week := t.ISOWeek()
-		return fmt.Sprintf("%d-W%02d", year, week)
-	case "monthly":
-		// Group by month: "2026-01"
-		return t.Format("2006-01")
-	case "yearly":
-		// Group by year: "2026"
-		return t.Format("2006")
-	default:
-		return t.Format("2006-01-02 15:04:05")
-	}
 }
 
 func (o *Operator) logSnapshotSummary(pool *models.Pool) {
