@@ -74,9 +74,6 @@
       "groupName": "GitHub Actions"
     }
   ],
-  "docker": {
-    "pinDigests": true
-  },
   "golang": {
     "enabled": true
   },
