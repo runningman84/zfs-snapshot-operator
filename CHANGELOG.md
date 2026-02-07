@@ -1,3 +1,11 @@
+## [1.2.5](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.4...v1.2.5) (2026-02-07)
+
+
+### Bug Fixes
+
+* improve logic ([48e1c7a](https://github.com/runningman84/zfs-snapshot-operator/commit/48e1c7a857597b552480d66c8e8fcb638b97d388))
+* update alpine ([08b325c](https://github.com/runningman84/zfs-snapshot-operator/commit/08b325c86ffe5ef2de70c2fc8155d48abcd1e314))
+
 ## [1.2.4](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.3...v1.2.4) (2026-01-25)
 
 
