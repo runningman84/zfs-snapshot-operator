@@ -52,6 +52,16 @@
     },
     {
       "matchManagers": [
+        "gomod"
+      ],
+      "matchDepTypes": [
+        "indirect"
+      ],
+      "enabled": false,
+      "description": "Ignore indirect dependencies - they update automatically via direct dependency upgrades"
+    },
+    {
+      "matchManagers": [
         "github-actions"
       ],
       "groupName": "GitHub Actions"
