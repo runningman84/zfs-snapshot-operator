@@ -24,6 +24,10 @@
 # Breaking changes:
 #    feat!: <subject>  (breaking change - note the !)
 #    Or add "BREAKING CHANGE: description" in the footer
+#
+# IMPORTANT: All commits must include a DCO sign-off:
+#    Use: git commit -s
+#    This adds: Signed-off-by: Your Name <your@email.com>
 #    build    (changes to build system or dependencies)
 # --------------------
 # Remember to:

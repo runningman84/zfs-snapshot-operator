@@ -1,5 +1,8 @@
 {
     "chat.tools.terminal.autoApprove": {
         "go": true
-    }
+    },
+    "git.alwaysSignOff": true,
+    "git.inputValidationLength": 72,
+    "git.inputValidationSubjectLength": 72
 }
