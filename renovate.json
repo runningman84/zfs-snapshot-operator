@@ -3,6 +3,13 @@
   "extends": [
     "config:base"
   ],
+  "semanticCommits": "enabled",
+  "commitMessagePrefix": "",
+  "commitMessageAction": "update",
+  "commitMessageTopic": "{{depName}}",
+  "commitMessageExtra": "to {{#if isMajor}}v{{{newMajor}}}{{else}}{{#if isSingleVersion}}v{{{newVersion}}}{{else}}{{{newValue}}}{{/if}}{{/if}}",
+  "commitMessageSuffix": "",
+  "prFooter": "Signed-off-by: renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>",
   "postUpdateOptions": [
     "gomodTidy"
   ],
