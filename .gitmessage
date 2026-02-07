@@ -19,6 +19,12 @@
 #    perf     (performance improvements)
 #    ci       (changes to CI configuration)
 #    build    (changes to build system or dependencies)
+#    revert   (reverting a previous commit)
+#
+# Breaking changes:
+#    feat!: <subject>  (breaking change - note the !)
+#    Or add "BREAKING CHANGE: description" in the footer
+#    build    (changes to build system or dependencies)
 # --------------------
 # Remember to:
 #   - Use the imperative mood in the subject line
