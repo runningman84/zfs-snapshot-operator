@@ -61,12 +61,18 @@ jobs:
             - **chore**: Changes to build process or auxiliary tools
             - **ci**: CI configuration changes
             - **build**: Changes to build system or dependencies
+            - **revert**: Reverting a previous commit
+
+            ### Breaking Changes:
+            - Add \`!\` after type: \`feat!: remove deprecated API\`
+            - Or add \`BREAKING CHANGE:\` in footer
 
             ### Examples:
             - \`feat: add support for bucket versioning\`
             - \`fix: correct owner change logic\`
             - \`docs: update installation instructions\`
             - \`test: add tests for graceful shutdown\`
+            - \`feat!: drop support for older API versions\`
 
             Please update your commit messages or squash your commits with proper messages.`
             })

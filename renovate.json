@@ -36,6 +36,16 @@
     },
     {
       "matchManagers": [
+        "dockerfile"
+      ],
+      "matchPackageNames": [
+        "alpine"
+      ],
+      "groupName": "Alpine Docker base image",
+      "versioning": "docker"
+    },
+    {
+      "matchManagers": [
         "gomod"
       ],
       "groupName": "Go dependencies"

@@ -36,9 +36,27 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: commit-msg-length
+        name: check commit message length
+        entry: bash -c 'if [ $(head -n1 "$1" | wc -c) -gt 73 ]; then echo "Commit message header exceeds 72 characters"; exit 1; fi'
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v3.6.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
-        args: []
+        args:
+          - feat
+          - fix
+          - docs
+          - style
+          - refactor
+          - perf
+          - test
+          - chore
+          - ci
+          - build
+          - revert

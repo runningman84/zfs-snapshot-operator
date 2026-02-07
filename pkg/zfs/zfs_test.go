@@ -28,7 +28,7 @@ func TestNewManager(t *testing.T) {
 func TestIsSnapshotRecent(t *testing.T) {
 	cfg := config.NewConfig("test")
 	manager := NewManager(cfg)
-	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+	now := time.Date(2024, 1, 15, 12, 30, 0, 0, time.UTC) // 12:30:00 on Monday, Jan 15, 2024
 
 	tests := []struct {
 		name      string
@@ -36,42 +36,130 @@ func TestIsSnapshotRecent(t *testing.T) {
 		frequency string
 		want      bool
 	}{
+		// Frequently (15-minute intervals)
 		{
-			name: "recent hourly snapshot",
+			name: "frequently snapshot from same 15-min interval",
 			snapshot: &models.Snapshot{
-				DateTime:  now.Add(-30 * time.Minute),
+				DateTime:  time.Date(2024, 1, 15, 12, 30, 0, 0, time.UTC), // 12:30:00 - same interval
+				Frequency: "frequently",
+			},
+			frequency: "frequently",
+			want:      true,
+		},
+		{
+			name: "frequently snapshot from same 15-min interval (different seconds)",
+			snapshot: &models.Snapshot{
+				DateTime:  time.Date(2024, 1, 15, 12, 42, 0, 0, time.UTC), // 12:42 rounds to 12:30
+				Frequency: "frequently",
+			},
+			frequency: "frequently",
+			want:      true,
+		},
+		{
+			name: "frequently snapshot from previous 15-min interval",
+			snapshot: &models.Snapshot{
+				DateTime:  time.Date(2024, 1, 15, 12, 29, 59, 0, time.UTC), // 12:29:59 rounds to 12:15
+				Frequency: "frequently",
+			},
+			frequency: "frequently",
+			want:      false,
+		},
+		// Hourly
+		{
+			name: "hourly snapshot from same hour",
+			snapshot: &models.Snapshot{
+				DateTime:  time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC), // 12:00:00 - same hour as now (12:30)
 				Frequency: "hourly",
 			},
 			frequency: "hourly",
 			want:      true,
 		},
 		{
-			name: "old hourly snapshot",
+			name: "hourly snapshot from previous hour",
 			snapshot: &models.Snapshot{
-				DateTime:  now.Add(-2 * time.Hour),
+				DateTime:  time.Date(2024, 1, 15, 11, 50, 0, 0, time.UTC), // 11:50:00 - different hour
 				Frequency: "hourly",
 			},
 			frequency: "hourly",
 			want:      false,
 		},
+		// Daily
 		{
-			name: "recent daily snapshot",
+			name: "daily snapshot from same day",
 			snapshot: &models.Snapshot{
-				DateTime:  now.Add(-12 * time.Hour),
+				DateTime:  time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC), // Same day
 				Frequency: "daily",
 			},
 			frequency: "daily",
 			want:      true,
 		},
 		{
-			name: "old daily snapshot",
+			name: "daily snapshot from previous day",
 			snapshot: &models.Snapshot{
-				DateTime:  now.Add(-48 * time.Hour),
+				DateTime:  time.Date(2024, 1, 14, 23, 0, 0, 0, time.UTC), // Previous day
 				Frequency: "daily",
 			},
 			frequency: "daily",
 			want:      false,
 		},
+		// Weekly
+		{
+			name: "weekly snapshot from same ISO week",
+			snapshot: &models.Snapshot{
+				DateTime:  time.Date(2024, 1, 16, 10, 0, 0, 0, time.UTC), // Tuesday Jan 16 - same week W03
+				Frequency: "weekly",
+			},
+			frequency: "weekly",
+			want:      true,
+		},
+		{
+			name: "weekly snapshot from previous ISO week",
+			snapshot: &models.Snapshot{
+				DateTime:  time.Date(2024, 1, 14, 10, 0, 0, 0, time.UTC), // Sunday Jan 14 - week W02
+				Frequency: "weekly",
+			},
+			frequency: "weekly",
+			want:      false,
+		},
+		// Monthly
+		{
+			name: "monthly snapshot from same month",
+			snapshot: &models.Snapshot{
+				DateTime:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), // Jan 1 - same month
+				Frequency: "monthly",
+			},
+			frequency: "monthly",
+			want:      true,
+		},
+		{
+			name: "monthly snapshot from previous month",
+			snapshot: &models.Snapshot{
+				DateTime:  time.Date(2023, 12, 31, 23, 59, 59, 0, time.UTC), // Dec 31 - different month
+				Frequency: "monthly",
+			},
+			frequency: "monthly",
+			want:      false,
+		},
+		// Yearly
+		{
+			name: "yearly snapshot from same year",
+			snapshot: &models.Snapshot{
+				DateTime:  time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC), // June 2024 - same year
+				Frequency: "yearly",
+			},
+			frequency: "yearly",
+			want:      true,
+		},
+		{
+			name: "yearly snapshot from previous year",
+			snapshot: &models.Snapshot{
+				DateTime:  time.Date(2023, 12, 31, 23, 59, 59, 0, time.UTC), // Dec 31, 2023 - different year
+				Frequency: "yearly",
+			},
+			frequency: "yearly",
+			want:      false,
+		},
+		// Edge cases
 		{
 			name: "wrong frequency",
 			snapshot: &models.Snapshot{
@@ -565,24 +653,24 @@ func TestSnapshotDeletionSafety(t *testing.T) {
 			description: "Snapshot created at current time must never be deleted",
 		},
 		{
-			name: "snapshot created 1 minute ago - MUST keep",
+			name: "snapshot created 1 minute ago in same hour - MUST keep",
 			snapshot: &models.Snapshot{
 				DateTime:  now.Add(-1 * time.Minute),
 				Frequency: "hourly",
 			},
 			frequency:   "hourly",
 			shouldKeep:  true,
-			description: "Very recent snapshot must be protected",
+			description: "Snapshot from same hour must be protected",
 		},
 		{
-			name: "snapshot created 30 minutes ago - MUST keep",
+			name: "snapshot created 30 minutes ago in same hour - MUST keep",
 			snapshot: &models.Snapshot{
 				DateTime:  now.Add(-30 * time.Minute),
 				Frequency: "hourly",
 			},
 			frequency:   "hourly",
 			shouldKeep:  true,
-			description: "Snapshot within minimum age must be kept",
+			description: "Snapshot from same hour period must be kept",
 		},
 		{
 			name: "daily snapshot created today - MUST keep",
@@ -642,9 +730,14 @@ func TestSnapshotDeletionSafety(t *testing.T) {
 					tt.name, tt.description)
 			}
 
-			// Verify IsSnapshotRecent is consistent for recent snapshots
-			if tt.shouldKeep && tt.snapshot.DateTime.After(now.Add(-1*time.Hour)) && !isRecent {
-				t.Errorf("Consistency issue: very recent snapshot not marked as recent. %s", tt.description)
+			// Verify IsSnapshotRecent is consistent for same-period snapshots
+			// Check if snapshot is from the same period (hour for hourly, day for daily, etc.)
+			snapshotPeriod := GetTimePeriodKey(tt.snapshot.DateTime, tt.frequency)
+			currentPeriod := GetTimePeriodKey(now, tt.frequency)
+			samePerind := snapshotPeriod == currentPeriod
+
+			if tt.shouldKeep && samePerind && !isRecent {
+				t.Errorf("Consistency issue: snapshot from same period not marked as recent. %s", tt.description)
 			}
 		})
 	}
