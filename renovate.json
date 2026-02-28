@@ -1,12 +1,25 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base"
+    "config:recommended"
   ],
+  "semanticCommits": "enabled",
+  "commitMessagePrefix": "",
+  "commitMessageAction": "update",
+  "commitMessageTopic": "{{depName}}",
+  "commitMessageExtra": "to {{#if isMajor}}v{{{newMajor}}}{{else}}{{#if isSingleVersion}}v{{{newVersion}}}{{else}}{{{newValue}}}{{/if}}{{/if}}",
+  "commitMessageSuffix": "",
+  "prFooter": "Signed-off-by: renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>",
   "postUpdateOptions": [
     "gomodTidy"
   ],
   "packageRules": [
+    {
+      "matchCategories": [
+        "golang"
+      ],
+      "enabled": true
+    },
     {
       "matchUpdateTypes": [
         "patch"
@@ -52,17 +65,21 @@
     },
     {
       "matchManagers": [
+        "gomod"
+      ],
+      "matchDepTypes": [
+        "indirect"
+      ],
+      "enabled": false,
+      "description": "Ignore indirect dependencies - they update automatically via direct dependency upgrades"
+    },
+    {
+      "matchManagers": [
         "github-actions"
       ],
       "groupName": "GitHub Actions"
     }
   ],
-  "docker": {
-    "pinDigests": true
-  },
-  "golang": {
-    "enabled": true
-  },
   "helm-values": {
     "enabled": true
   }

@@ -40,9 +40,9 @@ jobs:
           ref: ${{ steps.tag.outputs.tag }}
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: '1.26'
 
       - name: Build Go binary
         env:
@@ -62,7 +62,7 @@ jobs:
           echo "Archive size: $(du -h ${BINARY_NAME}.tar.gz | cut -f1)"
 
       - name: Upload binary artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.arch }}
           path: |
@@ -112,7 +112,7 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ matrix.arch }}
           path: /tmp/digests/*
@@ -157,7 +157,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Download digests
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: digests-*
           path: /tmp/digests
@@ -363,7 +363,7 @@ jobs:
           echo "Successfully pushed to: oci://ghcr.io/${{ github.repository_owner }}/charts/${CHART_NAME}:$CHART_VERSION"
 
       - name: Download binary artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: binary-*
           path: ./binaries
