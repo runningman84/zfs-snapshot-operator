@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/go-logr/zapr v1.3.0
 	go.uber.org/zap v1.27.1
-	k8s.io/klog/v2 v2.130.1
+	k8s.io/klog/v2 v2.140.0
 )
 
 require (
