@@ -59,6 +59,19 @@ snapshots:
   maxWeekly: 4
   maxMonthly: 12
   maxYearly: 3
+# Filesystem-specific snapshot retention overrides
+# Override the global snapshot retention settings for specific filesystems
+# The filesystem name will be converted to an environment variable suffix
+# (slashes replaced with underscores, uppercased)
+filesystemOverrides: []
+  # Example: Override retention for tank/public filesystem
+  # - filesystem: "tank/public"
+  #   maxHourly: 48     # Keep 48 hourly snapshots instead of global default
+  #   maxDaily: 14      # Keep 14 daily snapshots instead of global default
+  # Example: Override retention for backup/data filesystem
+  # - filesystem: "backup/data"
+  #   maxDaily: 30
+  #   maxWeekly: 8
 # Pool filtering
 # Comma-separated list of pools to manage snapshots for
 # If empty, all pools will be managed

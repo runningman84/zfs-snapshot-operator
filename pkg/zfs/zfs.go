@@ -258,7 +258,7 @@ func (m *Manager) CanSnapshotBeDeleted(snapshot *models.Snapshot, frequency stri
 		return false
 	}
 
-	maxDate := m.config.GetMaxSnapshotDate(frequency, now)
+	maxDate := m.config.GetMaxSnapshotDate(frequency, now, snapshot.FilesystemName)
 	return snapshot.DateTime.Before(maxDate)
 }
 
