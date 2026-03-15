@@ -112,40 +112,63 @@ func NewConfig(mode string) *Config {
 }
 
 // GetMaxSnapshotsForFrequency returns the maximum number of snapshots to keep for a given frequency
-func (c *Config) GetMaxSnapshotsForFrequency(frequency string) int {
+// If filesystemName is provided, it will check for filesystem-specific overrides first
+// (e.g., MAX_HOURLY_SNAPSHOTS_TANK_PUBLIC for tank/public filesystem)
+func (c *Config) GetMaxSnapshotsForFrequency(frequency string, filesystemName ...string) int {
+	var envKey string
+	var defaultValue int
+
 	switch frequency {
 	case "frequently":
-		return c.MaxFrequentlySnapshots
+		envKey = "MAX_FREQUENTLY_SNAPSHOTS"
+		defaultValue = c.MaxFrequentlySnapshots
 	case "hourly":
-		return c.MaxHourlySnapshots
+		envKey = "MAX_HOURLY_SNAPSHOTS"
+		defaultValue = c.MaxHourlySnapshots
 	case "daily":
-		return c.MaxDailySnapshots
+		envKey = "MAX_DAILY_SNAPSHOTS"
+		defaultValue = c.MaxDailySnapshots
 	case "weekly":
-		return c.MaxWeeklySnapshots
+		envKey = "MAX_WEEKLY_SNAPSHOTS"
+		defaultValue = c.MaxWeeklySnapshots
 	case "monthly":
-		return c.MaxMonthlySnapshots
+		envKey = "MAX_MONTHLY_SNAPSHOTS"
+		defaultValue = c.MaxMonthlySnapshots
 	case "yearly":
-		return c.MaxYearlySnapshots
+		envKey = "MAX_YEARLY_SNAPSHOTS"
+		defaultValue = c.MaxYearlySnapshots
 	default:
 		return 0
 	}
+
+	// Check for filesystem-specific override if filesystem name is provided
+	if len(filesystemName) > 0 && filesystemName[0] != "" {
+		if value := getFilesystemSpecificEnvAsInt(envKey, filesystemName[0], -1); value != -1 {
+			return value
+		}
+	}
+
+	return defaultValue
 }
 
 // GetMaxSnapshotDate returns the maximum date for a given frequency
-func (c *Config) GetMaxSnapshotDate(frequency string, now time.Time) time.Time {
+// If filesystemName is provided, it will check for filesystem-specific overrides first
+func (c *Config) GetMaxSnapshotDate(frequency string, now time.Time, filesystemName ...string) time.Time {
+	maxCount := c.GetMaxSnapshotsForFrequency(frequency, filesystemName...)
+
 	switch frequency {
 	case "frequently":
-		return now.Add(-time.Duration(c.MaxFrequentlySnapshots) * 15 * time.Minute)
+		return now.Add(-time.Duration(maxCount) * 15 * time.Minute)
 	case "hourly":
-		return now.Add(-time.Duration(c.MaxHourlySnapshots) * time.Hour)
+		return now.Add(-time.Duration(maxCount) * time.Hour)
 	case "daily":
-		return now.Add(-time.Duration(c.MaxDailySnapshots) * 24 * time.Hour)
+		return now.Add(-time.Duration(maxCount) * 24 * time.Hour)
 	case "weekly":
-		return now.Add(-time.Duration(c.MaxWeeklySnapshots) * 7 * 24 * time.Hour)
+		return now.Add(-time.Duration(maxCount) * 7 * 24 * time.Hour)
 	case "monthly":
-		return now.Add(-time.Duration(c.MaxMonthlySnapshots*4) * 7 * 24 * time.Hour)
+		return now.Add(-time.Duration(maxCount*4) * 7 * 24 * time.Hour)
 	case "yearly":
-		return now.Add(-time.Duration(c.MaxYearlySnapshots*52) * 7 * 24 * time.Hour)
+		return now.Add(-time.Duration(maxCount*52) * 7 * 24 * time.Hour)
 	default:
 		return now
 	}
@@ -277,4 +300,26 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 		return defaultValue
 	}
 	return boolValue
+}
+
+// getFilesystemSpecificEnvAsInt checks for a filesystem-specific environment variable
+// For example, for filesystem "tank/public" and key "MAX_HOURLY_SNAPSHOTS",
+// it will look for "MAX_HOURLY_SNAPSHOTS_TANK_PUBLIC"
+func getFilesystemSpecificEnvAsInt(key string, filesystemName string, defaultValue int) int {
+	// Convert filesystem name to env var suffix
+	// Replace "/" with "_" and convert to uppercase
+	suffix := strings.ToUpper(strings.ReplaceAll(filesystemName, "/", "_"))
+	specificKey := key + "_" + suffix
+
+	valueStr := os.Getenv(specificKey)
+	if valueStr == "" {
+		return defaultValue
+	}
+
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		return defaultValue
+	}
+
+	return value
 }

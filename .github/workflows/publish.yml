@@ -51,7 +51,8 @@ jobs:
           CGO_ENABLED: 0
         run: |
           VERSION="${{ steps.tag.outputs.version }}"
-          BINARY_NAME="zfs-snapshot-operator-linux-${{ matrix.arch }}"
+          BINARY_BASE_NAME="${{ github.event.repository.name }}-linux"
+          BINARY_NAME="${BINARY_BASE_NAME}-${{ matrix.arch }}"
           echo "Building ${BINARY_NAME} with version ${VERSION}"
           go build -v -ldflags="-w -s -X main.Version=${VERSION}" -o "${BINARY_NAME}" ./cmd/operator
           chmod +x "${BINARY_NAME}"
@@ -66,8 +67,8 @@ jobs:
         with:
           name: binary-${{ matrix.arch }}
           path: |
-            zfs-snapshot-operator-linux-${{ matrix.arch }}.tar.gz
-            zfs-snapshot-operator-linux-${{ matrix.arch }}.tar.gz.sha256
+            ${{ github.event.repository.name }}-linux-${{ matrix.arch }}.tar.gz
+            ${{ github.event.repository.name }}-linux-${{ matrix.arch }}.tar.gz.sha256
           retention-days: 1
 
       - name: Debug info
@@ -374,16 +375,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
+          BINARY_BASE_NAME="${{ github.event.repository.name }}-linux"
           echo "Uploading binaries to release ${TAG}"
 
           cd binaries
           ls -lh
 
           gh release upload "${TAG}" \
-            zfs-snapshot-operator-linux-amd64.tar.gz \
-            zfs-snapshot-operator-linux-amd64.tar.gz.sha256 \
-            zfs-snapshot-operator-linux-arm64.tar.gz \
-            zfs-snapshot-operator-linux-arm64.tar.gz.sha256 \
+            ${BINARY_BASE_NAME}-amd64.tar.gz \
+            ${BINARY_BASE_NAME}-amd64.tar.gz.sha256 \
+            ${BINARY_BASE_NAME}-arm64.tar.gz \
+            ${BINARY_BASE_NAME}-arm64.tar.gz.sha256 \
             --clobber
 
           echo "✅ Binaries uploaded to release"
@@ -400,9 +402,10 @@ jobs:
           echo "- \`ghcr.io/${{ github.repository }}:${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Multi-architecture: linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          BINARY_BASE_NAME="${{ github.event.repository.name }}-linux"
           echo "#### Go Binaries" >> $GITHUB_STEP_SUMMARY
-          echo "- \`zfs-snapshot-operator-linux-amd64.tar.gz\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`zfs-snapshot-operator-linux-arm64.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${BINARY_BASE_NAME}-amd64.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${BINARY_BASE_NAME}-arm64.tar.gz\`" >> $GITHUB_STEP_SUMMARY
           echo "- SHA256 checksums included" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "#### Helm Chart" >> $GITHUB_STEP_SUMMARY

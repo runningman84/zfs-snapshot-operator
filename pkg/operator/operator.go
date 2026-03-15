@@ -283,7 +283,7 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 	klog.Infof("Processing frequency %s", frequency)
 
 	// Get retention configuration for this frequency
-	maxCount := o.config.GetMaxSnapshotsForFrequency(frequency)
+	maxCount := o.config.GetMaxSnapshotsForFrequency(frequency, pool.FilesystemName)
 
 	// If maxCount is 0, skip this frequency entirely (no snapshots created or kept)
 	if maxCount == 0 {
@@ -314,7 +314,7 @@ func (o *Operator) processFrequency(pool *models.Pool, frequency string, now tim
 		return fmt.Errorf("failed to get snapshots: %w", err)
 	}
 
-	retentionCutoff := o.config.GetMaxSnapshotDate(frequency, now)
+	retentionCutoff := o.config.GetMaxSnapshotDate(frequency, now, pool.FilesystemName)
 
 	klog.V(1).Infof(" Found %d %s snapshot(s), retention window: %d periods, cutoff: %s",
 		len(snapshots), frequency, maxCount, retentionCutoff.Format("2006-01-02 15:04:05"))

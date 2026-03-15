@@ -29,6 +29,28 @@ snapshots:
   # Keep 5 years worth of yearly snapshots
   maxYearly: 5
 
+# Filesystem-specific retention overrides
+# Override snapshot retention for specific filesystems
+# This allows you to have different retention policies per filesystem
+filesystemOverrides:
+  # Example: Keep more snapshots for critical data
+  - filesystem: "tank/public"
+    maxHourly: 72      # Keep 3 days of hourly snapshots
+    maxDaily: 30       # Keep 30 days of daily snapshots
+    maxWeekly: 12      # Keep 12 weeks of weekly snapshots
+
+  # Example: Keep fewer snapshots for temporary data
+  - filesystem: "tank/scratch"
+    maxHourly: 24      # Only 1 day of hourly snapshots
+    maxDaily: 3        # Only 3 days of daily snapshots
+    maxWeekly: 0       # No weekly snapshots (disabled)
+
+  # Example: Extended retention for backup pool
+  - filesystem: "backup/data"
+    maxDaily: 60       # 60 days of daily snapshots
+    maxMonthly: 36     # 3 years of monthly snapshots
+    maxYearly: 10      # 10 years of yearly snapshots
+
 # Pool filtering
 # Specify which pools to manage snapshots for
 pools:

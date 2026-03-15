@@ -82,6 +82,33 @@ spec:
               - name: CHROOT_BIN_PATH
                 value: {{ .Values.operator.chrootBinPath | quote }}
               {{- end }}
+              {{- range .Values.filesystemOverrides }}
+              {{- $suffix := regexReplaceAll "/" .filesystem "_" | upper }}
+              {{- if .maxFrequently }}
+              - name: MAX_FREQUENTLY_SNAPSHOTS_{{ $suffix }}
+                value: {{ .maxFrequently | quote }}
+              {{- end }}
+              {{- if .maxHourly }}
+              - name: MAX_HOURLY_SNAPSHOTS_{{ $suffix }}
+                value: {{ .maxHourly | quote }}
+              {{- end }}
+              {{- if .maxDaily }}
+              - name: MAX_DAILY_SNAPSHOTS_{{ $suffix }}
+                value: {{ .maxDaily | quote }}
+              {{- end }}
+              {{- if .maxWeekly }}
+              - name: MAX_WEEKLY_SNAPSHOTS_{{ $suffix }}
+                value: {{ .maxWeekly | quote }}
+              {{- end }}
+              {{- if .maxMonthly }}
+              - name: MAX_MONTHLY_SNAPSHOTS_{{ $suffix }}
+                value: {{ .maxMonthly | quote }}
+              {{- end }}
+              {{- if .maxYearly }}
+              - name: MAX_YEARLY_SNAPSHOTS_{{ $suffix }}
+                value: {{ .maxYearly | quote }}
+              {{- end }}
+              {{- end }}
             {{- with .Values.resources }}
             resources:
               {{- toYaml . | nindent 14 }}
