@@ -1,6 +1,6 @@
 module github.com/runningman84/zfs-snapshot-operator
 
-go 1.25
+go 1.26
 
 require (
 	github.com/go-logr/zapr v1.3.0
