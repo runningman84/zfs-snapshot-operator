@@ -169,6 +169,31 @@ The operator is configured through environment variables, which can be set in th
 | `CHROOT_HOST_PATH` | Host root path for chroot mode | `/host` |
 | `CHROOT_BIN_PATH` | Path to ZFS binaries in chroot mode | `/usr/local/sbin` |
 
+#### Filesystem-Specific Overrides
+
+You can override snapshot retention settings for specific filesystems by appending the filesystem name to the environment variable. The filesystem name should have slashes (`/`) replaced with underscores (`_`) and be uppercased.
+
+For example, to keep 48 hourly snapshots for `tank/public` instead of the global default:
+
+```bash
+MAX_HOURLY_SNAPSHOTS=24                    # Global default
+MAX_HOURLY_SNAPSHOTS_TANK_PUBLIC=48        # Override for tank/public
+```
+
+More examples:
+
+```bash
+# Different retention for backup/data
+MAX_DAILY_SNAPSHOTS=7                      # Global default
+MAX_DAILY_SNAPSHOTS_BACKUP_DATA=14         # Keep 14 daily snapshots for backup/data
+
+# Pool-level override
+MAX_WEEKLY_SNAPSHOTS=4                     # Global default
+MAX_WEEKLY_SNAPSHOTS_POOL1=8               # Keep 8 weekly snapshots for pool1
+```
+
+The operator will automatically use the filesystem-specific value when processing that filesystem, falling back to the global value if no specific override is set.
+
 ### Helm Values
 
 Edit [helm/values.yaml](helm/values.yaml) to customize the deployment:
@@ -229,6 +254,40 @@ snapshots:
   maxMonthly: 6    # 6 months
   maxYearly: 1     # 1 year
 ```
+
+**Filesystem-specific retention overrides:**
+
+You can override snapshot retention settings for specific filesystems. This is useful when different datasets have different backup requirements:
+
+```yaml
+# Global defaults apply to all filesystems
+snapshots:
+  maxHourly: 24
+  maxDaily: 7
+  maxWeekly: 4
+
+# Override retention for specific filesystems
+filesystemOverrides:
+  # Critical data - keep more snapshots
+  - filesystem: "tank/public"
+    maxHourly: 72     # Keep 3 days of hourly snapshots
+    maxDaily: 30      # Keep 30 days of daily snapshots
+    maxWeekly: 12     # Keep 12 weeks of weekly snapshots
+
+  # Temporary data - keep fewer snapshots
+  - filesystem: "tank/scratch"
+    maxHourly: 24
+    maxDaily: 3
+    maxWeekly: 0      # Disable weekly snapshots for this filesystem
+
+  # Backup pool - extended retention
+  - filesystem: "backup/data"
+    maxDaily: 60      # 60 days of daily snapshots
+    maxMonthly: 36    # 3 years of monthly snapshots
+    maxYearly: 10     # 10 years of yearly snapshots
+```
+
+The operator automatically converts filesystem names to environment variables (slashes become underscores, uppercased). These filesystem-specific settings take precedence over global defaults.
 
 **Custom scrub monitoring:**
 ```yaml

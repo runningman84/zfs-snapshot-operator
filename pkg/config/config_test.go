@@ -705,3 +705,111 @@ func TestLockFilePathEnvironmentVariable(t *testing.T) {
 		})
 	}
 }
+
+func TestFilesystemSpecificEnvironmentVariables(t *testing.T) {
+	// Test that filesystem-specific environment variables override global ones
+	tests := []struct {
+		name             string
+		globalEnvKey     string
+		globalEnvValue   string
+		specificEnvKey   string
+		specificEnvValue string
+		filesystemName   string
+		frequency        string
+		wantGlobal       int
+		wantSpecific     int
+	}{
+		{
+			name:             "hourly override for tank/public",
+			globalEnvKey:     "MAX_HOURLY_SNAPSHOTS",
+			globalEnvValue:   "24",
+			specificEnvKey:   "MAX_HOURLY_SNAPSHOTS_TANK_PUBLIC",
+			specificEnvValue: "48",
+			filesystemName:   "tank/public",
+			frequency:        "hourly",
+			wantGlobal:       24,
+			wantSpecific:     48,
+		},
+		{
+			name:             "daily override for backup/data",
+			globalEnvKey:     "MAX_DAILY_SNAPSHOTS",
+			globalEnvValue:   "7",
+			specificEnvKey:   "MAX_DAILY_SNAPSHOTS_BACKUP_DATA",
+			specificEnvValue: "14",
+			filesystemName:   "backup/data",
+			frequency:        "daily",
+			wantGlobal:       7,
+			wantSpecific:     14,
+		},
+		{
+			name:             "weekly override for pool1",
+			globalEnvKey:     "MAX_WEEKLY_SNAPSHOTS",
+			globalEnvValue:   "4",
+			specificEnvKey:   "MAX_WEEKLY_SNAPSHOTS_POOL1",
+			specificEnvValue: "8",
+			filesystemName:   "pool1",
+			frequency:        "weekly",
+			wantGlobal:       4,
+			wantSpecific:     8,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variables
+			os.Setenv(tt.globalEnvKey, tt.globalEnvValue)
+			os.Setenv(tt.specificEnvKey, tt.specificEnvValue)
+
+			// Create new config (this reads the global env vars)
+			cfg := NewConfig("test")
+
+			// Test global behavior (no filesystem name)
+			globalResult := cfg.GetMaxSnapshotsForFrequency(tt.frequency)
+			if globalResult != tt.wantGlobal {
+				t.Errorf("GetMaxSnapshotsForFrequency(%s) without filesystem = %d, want %d",
+					tt.frequency, globalResult, tt.wantGlobal)
+			}
+
+			// Test filesystem-specific behavior
+			specificResult := cfg.GetMaxSnapshotsForFrequency(tt.frequency, tt.filesystemName)
+			if specificResult != tt.wantSpecific {
+				t.Errorf("GetMaxSnapshotsForFrequency(%s, %s) = %d, want %d",
+					tt.frequency, tt.filesystemName, specificResult, tt.wantSpecific)
+			}
+
+			// Test that GetMaxSnapshotDate also uses the overrides
+			now := time.Now()
+			globalDate := cfg.GetMaxSnapshotDate(tt.frequency, now)
+			specificDate := cfg.GetMaxSnapshotDate(tt.frequency, now, tt.filesystemName)
+
+			// The dates should be different because they use different max counts
+			if globalDate.Equal(specificDate) && tt.wantGlobal != tt.wantSpecific {
+				t.Errorf("GetMaxSnapshotDate should return different values for global vs specific")
+			}
+
+			// Clean up
+			os.Unsetenv(tt.globalEnvKey)
+			os.Unsetenv(tt.specificEnvKey)
+		})
+	}
+}
+
+func TestFilesystemSpecificEnvironmentVariablesNotSet(t *testing.T) {
+	// Test that when filesystem-specific env var is not set, it falls back to global
+	os.Setenv("MAX_HOURLY_SNAPSHOTS", "24")
+	defer os.Unsetenv("MAX_HOURLY_SNAPSHOTS")
+
+	cfg := NewConfig("test")
+
+	// Without filesystem name - should use global
+	result1 := cfg.GetMaxSnapshotsForFrequency("hourly")
+	if result1 != 24 {
+		t.Errorf("GetMaxSnapshotsForFrequency(hourly) = %d, want 24", result1)
+	}
+
+	// With filesystem name but no specific env var set - should still use global
+	result2 := cfg.GetMaxSnapshotsForFrequency("hourly", "tank/public")
+	if result2 != 24 {
+		t.Errorf("GetMaxSnapshotsForFrequency(hourly, tank/public) without specific env = %d, want 24", result2)
+	}
+}

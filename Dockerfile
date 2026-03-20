@@ -23,10 +23,7 @@ RUN go mod download && go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -v -ldflags="-w -s -X main.Version=${VERSION}" -o operator ./cmd/operator
 
 # Runtime stage
-FROM alpine:3.23.3
-
-# Install ca-certificates for HTTPS connections
-RUN apk --no-cache add ca-certificates
+FROM gcr.io/distroless/static-debian13
 
 WORKDIR /app
 
