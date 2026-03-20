@@ -28,7 +28,7 @@ image:
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "1.2.5"
+  tag: "1.3.0"
 # CronJob configuration
 cronjob:
   # Schedule in Cron format, see https://en.wikipedia.org/wiki/Cron
@@ -64,14 +64,14 @@ snapshots:
 # The filesystem name will be converted to an environment variable suffix
 # (slashes replaced with underscores, uppercased)
 filesystemOverrides: []
-  # Example: Override retention for tank/public filesystem
-  # - filesystem: "tank/public"
-  #   maxHourly: 48     # Keep 48 hourly snapshots instead of global default
-  #   maxDaily: 14      # Keep 14 daily snapshots instead of global default
-  # Example: Override retention for backup/data filesystem
-  # - filesystem: "backup/data"
-  #   maxDaily: 30
-  #   maxWeekly: 8
+# Example: Override retention for tank/public filesystem
+# - filesystem: "tank/public"
+#   maxHourly: 48     # Keep 48 hourly snapshots instead of global default
+#   maxDaily: 14      # Keep 14 daily snapshots instead of global default
+# Example: Override retention for backup/data filesystem
+# - filesystem: "backup/data"
+#   maxDaily: 30
+#   maxWeekly: 8
 # Pool filtering
 # Comma-separated list of pools to manage snapshots for
 # If empty, all pools will be managed

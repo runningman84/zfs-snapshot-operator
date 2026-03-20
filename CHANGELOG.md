@@ -1,3 +1,17 @@
+# [1.3.0](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.5...v1.3.0) (2026-03-20)
+
+
+### Bug Fixes
+
+* bump go ([1091f85](https://github.com/runningman84/zfs-snapshot-operator/commit/1091f85f7a0fe7386d93c61caff22098e2291158))
+* **deps:** update module k8s.io/klog/v2 to v2.140.0 ([02bde52](https://github.com/runningman84/zfs-snapshot-operator/commit/02bde52df00193e2a6527948ed00a605541362b7))
+
+
+### Features
+
+* add filesystem-specific snapshot retention overrides ([a34cb66](https://github.com/runningman84/zfs-snapshot-operator/commit/a34cb663e1c2c305d153f8ea73848701ba992b5e))
+* use distroless image ([6f76dc2](https://github.com/runningman84/zfs-snapshot-operator/commit/6f76dc2ba9bfc49240a6896f43308864610ba1fa))
+
 ## [1.2.5](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.4...v1.2.5) (2026-02-07)
 
 
