@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.3.0...v1.3.1) (2026-06-20)
+
+
+### Bug Fixes
+
+* **deps:** update go dependencies to v1.28.0 ([7c256de](https://github.com/runningman84/zfs-snapshot-operator/commit/7c256defd9f4b74e401c90d25cd0a9993a7c5de8))
+
 # [1.3.0](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.2.5...v1.3.0) (2026-03-20)
 
 
