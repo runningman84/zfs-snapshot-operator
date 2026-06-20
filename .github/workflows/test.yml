@@ -59,7 +59,7 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v5
         with:
-          version: 'v3.13.2'
+          version: 'v3.21.2'
 
       - name: Test Helm chart
         run: |
