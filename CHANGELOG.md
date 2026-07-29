@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.3.1...v1.3.2) (2026-07-29)
+
+
+### Bug Fixes
+
+* move to alpine again because of chroot ([3c28a18](https://github.com/runningman84/zfs-snapshot-operator/commit/3c28a18ebf0332aac5692bd6df465fcb0d761928))
+
 ## [1.3.1](https://github.com/runningman84/zfs-snapshot-operator/compare/v1.3.0...v1.3.1) (2026-06-20)
 
 
