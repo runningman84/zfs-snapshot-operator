@@ -21,7 +21,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version: '1.27'
 
       - name: Install dependencies
         run: go mod download
@@ -59,7 +59,7 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v5
         with:
-          version: 'v4.2.4'
+          version: 'v4.3.0'
 
       - name: Test Helm chart
         run: |
