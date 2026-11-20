@@ -121,7 +121,7 @@ jobs:
           retention-days: 1
 
   publish:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: build-multiarch
     steps:
       - name: Determine tag
